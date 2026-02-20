@@ -1,0 +1,15 @@
+{% extends "base_report.html" %}
+{% block content %}
+<h2>Uptime Summary ({{ checks|length }} monitors)</h2>
+<table>
+  <tr><th>Name</th><th>URL/Target</th><th>Status</th><th>Response Time</th></tr>
+  {% for check in checks %}
+  <tr>
+    <td>{{ check.name }}</td>
+    <td>{{ check.url or check.target }}</td>
+    <td>{{ check.last_status or 'unknown' }}</td>
+    <td>{{ check.last_response_time or '-' }}ms</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

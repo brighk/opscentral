@@ -1,0 +1,16 @@
+{% extends "base_report.html" %}
+{% block content %}
+<h2>Asset Inventory ({{ assets|length }} total)</h2>
+<table>
+  <tr><th>Hostname</th><th>OS</th><th>CPU</th><th>RAM (GB)</th><th>IP Addresses</th></tr>
+  {% for asset in assets %}
+  <tr>
+    <td>{{ asset.hostname }}</td>
+    <td>{{ asset.os_type or '-' }} {{ asset.os_version or '' }}</td>
+    <td>{{ asset.cpu_model or '-' }}</td>
+    <td>{{ asset.ram_total_gb or '-' }}</td>
+    <td>{{ asset.ip_addresses or '-' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

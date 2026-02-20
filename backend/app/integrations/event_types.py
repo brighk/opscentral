@@ -1,0 +1,18 @@
+EVENT_TYPES = {
+    "alert.fired": "Fired when an alert rule triggers",
+    "alert.resolved": "Fired when an alert is resolved",
+    "alert.acknowledged": "Fired when an alert is acknowledged",
+    "agent.online": "Fired when an agent comes online",
+    "agent.offline": "Fired when an agent goes offline (stale)",
+    "vulnerability.detected": "Fired when a new vulnerability is detected",
+    "vulnerability.resolved": "Fired when a vulnerability is marked resolved",
+    "health_check.down": "Fired when a health check fails",
+    "health_check.up": "Fired when a health check recovers",
+    "asset.created": "Fired when a new asset is discovered",
+    "asset.deleted": "Fired when an asset is removed",
+    "incident.created": "Fired when an incident is created",
+    "incident.resolved": "Fired when an incident is resolved",
+    "runbook.started": "Fired when a runbook execution starts",
+    "runbook.completed": "Fired when a runbook execution completes",
+    "runbook.failed": "Fired when a runbook execution fails",
+}

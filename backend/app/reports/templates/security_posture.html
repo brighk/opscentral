@@ -1,0 +1,12 @@
+{% extends "base_report.html" %}
+{% block content %}
+<div class="score">{{ overall_score }}/100</div>
+<h2>Sub-Scores</h2>
+<table>
+  <tr><th>Category</th><th>Score</th></tr>
+  <tr><td>Patching</td><td>{{ patching_score }}</td></tr>
+  <tr><td>Uptime</td><td>{{ uptime_score }}</td></tr>
+  <tr><td>Vulnerability</td><td>{{ vulnerability_score }}</td></tr>
+  <tr><td>Agent Coverage</td><td>{{ agent_coverage_score }}</td></tr>
+</table>
+{% endblock %}
