@@ -47,15 +47,15 @@ dev-celery:
 dev-celery-beat:
 	cd backend && uv run celery -A app.tasks.celery_app beat --loglevel=info
 
-# Git hooks
+# Git hooks (run through uv, so ~/.local/bin doesn't need to be on PATH)
 install-hooks:
 	uv tool install pre-commit
-	pre-commit install
+	uv tool run pre-commit install
 
 # All
 install: install-backend install-frontend install-agent install-hooks
 
 lint:
-	pre-commit run --all-files
+	uv tool run pre-commit run --all-files
 
 test: test-backend

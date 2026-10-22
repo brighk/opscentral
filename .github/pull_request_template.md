@@ -8,7 +8,7 @@
 
 ## Checklist
 
-- [ ] `pre-commit run --all-files` passes locally
+- [ ] `make lint` passes locally
 - [ ] Tests added or updated for behavior changes
 - [ ] Docs updated (`docs/`) if user-facing behavior or the API changed
 - [ ] If this touches the agent, remote actions, or install scripts: I've described the security impact above
