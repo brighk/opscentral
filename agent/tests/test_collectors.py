@@ -128,3 +128,24 @@ def test_parse_nix():
 )
 def test_split_name_version(raw, expected):
     assert _split_name_version(raw) == expected
+
+
+# --- platforms where psutil lacks data ---
+
+
+def test_cpu_collector_without_cpu_freq(monkeypatch):
+    # psutil doesn't define cpu_freq() on Linux VMs without cpufreq (e.g. GitHub runners)
+    import psutil
+
+    monkeypatch.delattr(psutil, "cpu_freq", raising=False)
+    names = {m["name"] for m in collect_cpu()}
+    assert "cpu_percent" in names
+    assert "cpu_freq_mhz" not in names
+
+
+def test_network_collector_without_interfaces(monkeypatch):
+    import psutil
+
+    monkeypatch.setattr(psutil, "net_io_counters", lambda: None)
+    monkeypatch.setattr(psutil, "net_connections", lambda kind: [])
+    assert collect_network() == []

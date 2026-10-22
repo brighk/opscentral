@@ -5,6 +5,8 @@ def collect_network() -> list[dict]:
     metrics = []
 
     net_io = psutil.net_io_counters()
+    if not net_io:  # no network interfaces
+        return metrics
     metrics.append(
         {
             "name": "net_bytes_sent_mb",

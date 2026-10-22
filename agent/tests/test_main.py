@@ -88,3 +88,17 @@ def test_collect_and_send_metrics():
     assert {"cpu_percent", "memory_percent"} <= names
     assert client.heartbeats == [main.__version__]
     assert client.processes, "expected at least one running process"
+
+
+def test_failing_collector_does_not_drop_other_metrics(monkeypatch):
+    def broken():
+        raise RuntimeError("sensor exploded")
+
+    monkeypatch.setattr(main, "collect_cpu", broken)
+    client = FakeClient()
+    main.collect_and_send_metrics(client)  # type: ignore[arg-type]
+
+    names = {m["name"] for m in client.metrics}
+    assert "cpu_percent" not in names
+    assert "memory_percent" in names
+    assert client.heartbeats == [main.__version__]

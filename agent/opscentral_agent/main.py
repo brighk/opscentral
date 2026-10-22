@@ -34,14 +34,21 @@ def setup_logging():
 
 def collect_and_send_metrics(client: AgentClient):
     """Collect all metrics and send to server."""
-    try:
-        metrics = []
-        metrics.extend(collect_cpu())
-        metrics.extend(collect_memory())
-        metrics.extend(collect_disk())
-        metrics.extend(collect_network())
-        metrics.extend(collect_process_summary())
+    metrics = []
+    # A failing collector only drops its own metrics, not the whole batch
+    for collector in (
+        collect_cpu,
+        collect_memory,
+        collect_disk,
+        collect_network,
+        collect_process_summary,
+    ):
+        try:
+            metrics.extend(collector())
+        except Exception as e:
+            logger.error(f"{collector.__name__} failed: {e}")
 
+    try:
         client.send_metrics(metrics)
         client.send_heartbeat(
             agent_version=__version__,
