@@ -1,0 +1,18 @@
+# Shared ruff config; backend/ and agent/ extend this from their pyproject.toml.
+# target-version is inferred from each project's requires-python.
+line-length = 100
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+
+[lint.isort]
+known-first-party = ["app", "opscentral_agent"]

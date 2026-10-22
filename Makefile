@@ -1,4 +1,7 @@
-.PHONY: dev-backend dev-frontend dev-agent db-up db-down db-migrate db-revision test test-backend test-frontend install
+.PHONY: install install-backend install-frontend install-agent install-hooks \
+	dev-backend dev-frontend dev-agent dev-celery dev-celery-beat \
+	db-up db-down db-migrate db-revision \
+	lint test test-backend
 
 # Infrastructure
 db-up:
@@ -9,45 +12,50 @@ db-down:
 
 # Backend
 install-backend:
-	cd backend && pip install -e ".[dev]"
+	cd backend && uv sync
 
 dev-backend:
-	cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+	cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 db-migrate:
-	cd backend && alembic upgrade head
+	cd backend && uv run alembic upgrade head
 
 db-revision:
-	cd backend && alembic revision --autogenerate -m "$(msg)"
+	cd backend && uv run alembic revision --autogenerate -m "$(msg)"
 
 test-backend:
-	cd backend && pytest tests/ -v
+	cd backend && uv run pytest -v
 
 # Frontend
 install-frontend:
-	cd frontend && npm install
+	cd frontend && npm ci
 
 dev-frontend:
 	cd frontend && npm run dev
 
-test-frontend:
-	cd frontend && npm test
-
 # Agent
 install-agent:
-	cd agent && pip install -e ".[dev]"
+	cd agent && uv sync
 
 dev-agent:
-	cd agent && python -m opscentral_agent.main
+	cd agent && uv run python -m opscentral_agent.main
 
 # Celery
 dev-celery:
-	cd backend && celery -A app.tasks.celery_app worker --loglevel=info
+	cd backend && uv run celery -A app.tasks.celery_app worker --loglevel=info
 
 dev-celery-beat:
-	cd backend && celery -A app.tasks.celery_app beat --loglevel=info
+	cd backend && uv run celery -A app.tasks.celery_app beat --loglevel=info
+
+# Git hooks
+install-hooks:
+	uv tool install pre-commit
+	pre-commit install
 
 # All
-install: install-backend install-frontend install-agent
+install: install-backend install-frontend install-agent install-hooks
+
+lint:
+	pre-commit run --all-files
 
 test: test-backend

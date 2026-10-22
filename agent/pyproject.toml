@@ -10,10 +10,13 @@ dependencies = [
     "schedule>=1.2",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8.3",
-    "ruff>=0.8",
+    "ruff>=0.12",
+    "pyright>=1.1.400",
+    "types-pyyaml>=6.0",
+    "types-psutil>=6.1",
 ]
 
 [project.scripts]
@@ -22,3 +25,13 @@ opscentral-agent = "opscentral_agent.main:main"
 [build-system]
 requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+extend = "../ruff.toml"
+
+[tool.pyright]
+include = ["opscentral_agent"]
+pythonVersion = "3.10"
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
