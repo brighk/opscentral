@@ -2,10 +2,10 @@ import secrets
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Boolean, Text, JSON, Uuid
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, UUIDMixin, TimestampMixin
+from app.db.base import Base, TimestampMixin, UUIDMixin
 
 
 class Agent(Base, UUIDMixin, TimestampMixin):

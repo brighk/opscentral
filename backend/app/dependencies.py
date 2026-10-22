@@ -1,6 +1,8 @@
 import uuid
+from datetime import UTC
 
 from fastapi import Depends, Header
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,8 +12,6 @@ from app.auth.models import User
 from app.auth.security import decode_token
 from app.db.session import get_db
 from app.exceptions import ForbiddenError, UnauthorizedError
-
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 bearer_scheme = HTTPBearer()
 
@@ -28,7 +28,7 @@ async def get_current_user(
         if not user_id:
             raise UnauthorizedError()
     except JWTError:
-        raise UnauthorizedError("Invalid or expired token")
+        raise UnauthorizedError("Invalid or expired token") from None
 
     result = await db.execute(
         select(User).options(selectinload(User.tenant)).where(User.id == uuid.UUID(user_id))
@@ -56,9 +56,7 @@ async def get_agent_tenant_id(
 
 
 async def get_current_user_or_api_key(
-    credentials: HTTPAuthorizationCredentials | None = Depends(
-        HTTPBearer(auto_error=False)
-    ),
+    credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
     x_api_key: str | None = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> User:
@@ -68,7 +66,7 @@ async def get_current_user_or_api_key(
 
     if x_api_key:
         import hashlib
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from app.api_keys.models import APIKey
 
@@ -79,10 +77,10 @@ async def get_current_user_or_api_key(
         api_key = result.scalar_one_or_none()
         if not api_key:
             raise UnauthorizedError("Invalid API key")
-        if api_key.expires_at and api_key.expires_at < datetime.now(timezone.utc):
+        if api_key.expires_at and api_key.expires_at < datetime.now(UTC):
             raise UnauthorizedError("API key expired")
 
-        api_key.last_used_at = datetime.now(timezone.utc)
+        api_key.last_used_at = datetime.now(UTC)
 
         # Load the user who created this key as the acting user
         from app.auth.models import User as UserModel
@@ -108,6 +106,7 @@ def require_role(*roles: str):
         async def do_something(user: User = Depends(require_role("admin", "operator"))):
             ...
     """
+
     async def _check_role(
         credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
         db: AsyncSession = Depends(get_db),
@@ -116,4 +115,5 @@ def require_role(*roles: str):
         if user.role not in roles:
             raise ForbiddenError(f"Requires role: {', '.join(roles)}")
         return user
+
     return _check_role

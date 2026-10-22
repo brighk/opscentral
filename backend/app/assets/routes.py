@@ -27,9 +27,7 @@ async def list_assets(
     total = total_result.scalar() or 0
 
     result = await db.execute(
-        base.order_by(Asset.hostname)
-        .offset(pagination.offset)
-        .limit(pagination.page_size)
+        base.order_by(Asset.hostname).offset(pagination.offset).limit(pagination.page_size)
     )
     items = result.scalars().all()
     return PaginatedResponse(
@@ -73,6 +71,5 @@ async def get_asset_software(
     if not asset:
         raise NotFoundError("Asset not found")
     return [
-        {"name": s.name, "version": s.version, "publisher": s.publisher}
-        for s in asset.software
+        {"name": s.name, "version": s.version, "publisher": s.publisher} for s in asset.software
     ]

@@ -1,6 +1,5 @@
 """Notification dispatchers for different channel types."""
 
-import json
 import logging
 
 import httpx

@@ -10,9 +10,7 @@ from app.exceptions import BadRequestError, PaymentRequiredError
 
 
 async def get_or_create_subscription(tenant_id: uuid.UUID, db: AsyncSession) -> Subscription:
-    result = await db.execute(
-        select(Subscription).where(Subscription.tenant_id == tenant_id)
-    )
+    result = await db.execute(select(Subscription).where(Subscription.tenant_id == tenant_id))
     sub = result.scalar_one_or_none()
     if not sub:
         sub = Subscription(tenant_id=tenant_id, plan="free", status="active", asset_limit=5)
@@ -103,6 +101,8 @@ def create_checkout_session(
         session_params["customer"] = customer_id
 
     session = stripe.checkout.Session.create(**session_params)
+    if not session.url:
+        raise BadRequestError("Stripe did not return a checkout URL")
     return session.url
 
 
@@ -129,12 +129,11 @@ async def handle_webhook_event(payload: bytes, sig_header: str, db: AsyncSession
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
 
-    event = stripe.Webhook.construct_event(
-        payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
-    )
+    event = stripe.Webhook.construct_event(payload, sig_header, settings.STRIPE_WEBHOOK_SECRET)
 
     event_type = event["type"]
     data = event["data"]["object"]
+    sub: Subscription | None = None
 
     if event_type == "checkout.session.completed":
         tenant_id = uuid.UUID(data["metadata"]["tenant_id"])
@@ -152,9 +151,7 @@ async def handle_webhook_event(payload: bytes, sig_header: str, db: AsyncSession
     elif event_type == "customer.subscription.updated":
         subscription_id = data["id"]
         result = await db.execute(
-            select(Subscription).where(
-                Subscription.stripe_subscription_id == subscription_id
-            )
+            select(Subscription).where(Subscription.stripe_subscription_id == subscription_id)
         )
         sub = result.scalar_one_or_none()
         if sub:
@@ -163,9 +160,7 @@ async def handle_webhook_event(payload: bytes, sig_header: str, db: AsyncSession
     elif event_type == "customer.subscription.deleted":
         subscription_id = data["id"]
         result = await db.execute(
-            select(Subscription).where(
-                Subscription.stripe_subscription_id == subscription_id
-            )
+            select(Subscription).where(Subscription.stripe_subscription_id == subscription_id)
         )
         sub = result.scalar_one_or_none()
         if sub:
@@ -175,7 +170,7 @@ async def handle_webhook_event(payload: bytes, sig_header: str, db: AsyncSession
 
     # Log the event
     billing_event = BillingEvent(
-        tenant_id=sub.tenant_id if "sub" in dir() else uuid.UUID("00000000-0000-0000-0000-000000000000"),
+        tenant_id=sub.tenant_id if sub else uuid.UUID(int=0),
         event_type=event_type,
         stripe_event_id=event["id"],
         data={"object_id": data.get("id")},

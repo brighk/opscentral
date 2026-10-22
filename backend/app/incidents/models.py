@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy import DateTime, ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, UUIDMixin, TimestampMixin
+from app.db.base import Base, TimestampMixin, UUIDMixin
 
 
 class Incident(Base, UUIDMixin, TimestampMixin):
@@ -28,12 +28,8 @@ class Incident(Base, UUIDMixin, TimestampMixin):
     assigned_to: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     commander_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
-    resolved_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    closed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class IncidentUpdate(Base, UUIDMixin, TimestampMixin):
@@ -66,9 +62,7 @@ class Postmortem(Base, UUIDMixin, TimestampMixin):
     incident_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, unique=True
     )
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("tenants.id"), nullable=False
-    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     root_cause: Mapped[str | None] = mapped_column(Text)
     impact: Mapped[str | None] = mapped_column(Text)

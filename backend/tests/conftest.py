@@ -1,37 +1,35 @@
-import asyncio
 from collections.abc import AsyncGenerator
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.db.base import Base
-from app.db.session import get_db
-from app.main import app
+from app.agents.models import Agent  # noqa: F401
+from app.agents.status_models import AgentStatusLog  # noqa: F401
+from app.alerting.models import Alert, AlertRule  # noqa: F401
+from app.api_keys.models import APIKey  # noqa: F401
+from app.assets.models import Asset, SoftwareInventory  # noqa: F401
+from app.auth.audit_models import AuditLog  # noqa: F401
 
 # Import all models
 from app.auth.models import Tenant, User  # noqa: F401
-from app.agents.models import Agent  # noqa: F401
+from app.billing.models import BillingEvent, Subscription  # noqa: F401
+from app.dashboards.models import CustomDashboard, DashboardWidget  # noqa: F401
+from app.db.base import Base
+from app.db.session import get_db
+from app.healthchecks.models import HealthCheck, HealthCheckLog  # noqa: F401
+from app.incidents.models import Incident, IncidentTag, IncidentUpdate, Postmortem  # noqa: F401
+from app.integrations.models import ExternalIntegration, WebhookDelivery, WebhookEndpoint  # noqa: F401
+from app.main import app
+from app.maintenance.models import MaintenanceWindow  # noqa: F401
 from app.monitoring.models import Metric  # noqa: F401
-from app.assets.models import Asset, SoftwareInventory  # noqa: F401
-from app.alerting.models import AlertRule, Alert  # noqa: F401
 from app.monitoring.process_models import ProcessSnapshot  # noqa: F401
 from app.notifications.models import NotificationChannel  # noqa: F401
-from app.healthchecks.models import HealthCheck, HealthCheckLog  # noqa: F401
-from app.agents.status_models import AgentStatusLog  # noqa: F401
-from app.vulnerabilities.models import Vulnerability, VulnerabilityScan  # noqa: F401
-from app.auth.audit_models import AuditLog  # noqa: F401
-from app.dashboards.models import CustomDashboard, DashboardWidget  # noqa: F401
-from app.api_keys.models import APIKey  # noqa: F401
-from app.billing.models import Subscription, BillingEvent  # noqa: F401
-from app.reports.models import Report, ReportSchedule, ComplianceScore  # noqa: F401
+from app.oncall.models import EscalationPolicy, OnCallOverride, OnCallSchedule  # noqa: F401
 from app.remote_actions.models import RemoteAction  # noqa: F401
-from app.integrations.models import WebhookEndpoint, WebhookDelivery, ExternalIntegration  # noqa: F401
+from app.reports.models import ComplianceScore, Report, ReportSchedule  # noqa: F401
 from app.runbooks.models import Runbook, RunbookExecution, RunbookStepExecution  # noqa: F401
-from app.incidents.models import Incident, IncidentUpdate, IncidentTag, Postmortem  # noqa: F401
-from app.oncall.models import OnCallSchedule, OnCallOverride, EscalationPolicy  # noqa: F401
-from app.maintenance.models import MaintenanceWindow  # noqa: F401
+from app.vulnerabilities.models import Vulnerability, VulnerabilityScan  # noqa: F401
 
 TEST_DB_URL = "sqlite+aiosqlite:///./test.db"
 

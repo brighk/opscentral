@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -10,8 +10,8 @@ from app.dependencies import get_current_user, require_role
 from app.maintenance.models import MaintenanceWindow
 from app.maintenance.schemas import (
     MaintenanceWindowCreate,
-    MaintenanceWindowUpdate,
     MaintenanceWindowResponse,
+    MaintenanceWindowUpdate,
 )
 
 router = APIRouter(prefix="/api/v1/maintenance", tags=["maintenance"])
@@ -36,7 +36,7 @@ async def list_active_windows(
     db: AsyncSession = Depends(get_db),
 ):
     """Return windows that are active right now (used by frontend banner)."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     result = await db.execute(
         select(MaintenanceWindow).where(
             MaintenanceWindow.tenant_id == user.tenant_id,

@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy import select
@@ -29,7 +29,7 @@ async def dispatch_webhook(
     result = await db.execute(
         select(WebhookEndpoint).where(
             WebhookEndpoint.tenant_id == tenant_id,
-            WebhookEndpoint.is_active == True,
+            WebhookEndpoint.is_active == True,  # noqa: E712
         )
     )
     endpoints = result.scalars().all()
@@ -38,7 +38,11 @@ async def dispatch_webhook(
     payload_json = json.dumps(payload, default=str)
 
     for endpoint in endpoints:
-        event_types = json.loads(endpoint.event_types) if isinstance(endpoint.event_types, str) else endpoint.event_types
+        event_types = (
+            json.loads(endpoint.event_types)
+            if isinstance(endpoint.event_types, str)
+            else endpoint.event_types
+        )
         if event_type not in event_types:
             continue
 
@@ -66,7 +70,7 @@ async def dispatch_webhook(
             delivery.response_body = resp.text[:2000] if resp.text else None
             delivery.duration_ms = duration_ms
 
-            endpoint.last_triggered_at = datetime.now(timezone.utc)
+            endpoint.last_triggered_at = datetime.now(UTC)
             endpoint.last_status_code = resp.status_code
 
             if resp.status_code >= 400:

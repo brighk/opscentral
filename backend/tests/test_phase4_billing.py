@@ -1,31 +1,40 @@
-import pytest
 from httpx import AsyncClient
 
 
 async def _register_and_login(client: AsyncClient, email: str = "admin@test.com"):
-    reg = await client.post("/api/v1/auth/register", json={
-        "email": email,
-        "password": "testpass123",
-        "full_name": "Test Admin",
-        "company_name": "Test Corp",
-    })
+    reg = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": email,
+            "password": "testpass123",
+            "full_name": "Test Admin",
+            "company_name": "Test Corp",
+        },
+    )
     token = reg.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
 
 async def _create_viewer(client: AsyncClient, admin_headers: dict):
     """Create a viewer user and return headers."""
-    await client.post("/api/v1/auth/users/invite", json={
-        "email": "viewer@test.com",
-        "password": "viewerpass123",
-        "full_name": "Test Viewer",
-        "role": "viewer",
-    }, headers=admin_headers)
+    await client.post(
+        "/api/v1/auth/users/invite",
+        json={
+            "email": "viewer@test.com",
+            "password": "viewerpass123",
+            "full_name": "Test Viewer",
+            "role": "viewer",
+        },
+        headers=admin_headers,
+    )
 
-    login_resp = await client.post("/api/v1/auth/login", json={
-        "email": "viewer@test.com",
-        "password": "viewerpass123",
-    })
+    login_resp = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "viewer@test.com",
+            "password": "viewerpass123",
+        },
+    )
     token = login_resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
@@ -57,10 +66,14 @@ class TestBilling:
         admin_headers = await _register_and_login(client)
         viewer_headers = await _create_viewer(client, admin_headers)
 
-        resp = await client.post("/api/v1/billing/checkout", json={
-            "plan": "starter",
-            "billing_period": "monthly",
-        }, headers=viewer_headers)
+        resp = await client.post(
+            "/api/v1/billing/checkout",
+            json={
+                "plan": "starter",
+                "billing_period": "monthly",
+            },
+            headers=viewer_headers,
+        )
         assert resp.status_code == 403
 
     async def test_usage_stats(self, client: AsyncClient):
@@ -79,16 +92,24 @@ class TestBilling:
         headers = await _register_and_login(client)
 
         # Register an agent to get an API key
-        reg_resp = await client.post("/api/v1/agents/register", json={
-            "hostname": "test-agent",
-            "os_type": "linux",
-        }, headers=headers)
+        reg_resp = await client.post(
+            "/api/v1/agents/register",
+            json={
+                "hostname": "test-agent",
+                "os_type": "linux",
+            },
+            headers=headers,
+        )
         api_key = reg_resp.json()["api_key"]
         agent_headers = {"X-Agent-Key": api_key}
 
         # The free plan allows 5 assets; submitting inventory creates assets
         # First inventory should succeed (creates asset 1)
-        resp = await client.post("/api/v1/gateway/inventory", json={
-            "system_info": {"hostname": "server-1", "os_type": "linux"},
-        }, headers=agent_headers)
+        resp = await client.post(
+            "/api/v1/gateway/inventory",
+            json={
+                "system_info": {"hostname": "server-1", "os_type": "linux"},
+            },
+            headers=agent_headers,
+        )
         assert resp.status_code == 200

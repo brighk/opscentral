@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,9 +19,7 @@ class RunbookEngine:
         if not execution:
             return
 
-        result = await self.db.execute(
-            select(Runbook).where(Runbook.id == execution.runbook_id)
-        )
+        result = await self.db.execute(select(Runbook).where(Runbook.id == execution.runbook_id))
         runbook = result.scalar_one_or_none()
         if not runbook:
             execution.status = "failed"
@@ -30,7 +28,7 @@ class RunbookEngine:
             return
 
         execution.status = "running"
-        execution.started_at = datetime.now(timezone.utc)
+        execution.started_at = datetime.now(UTC)
         await self.db.commit()
 
         steps = runbook.steps if isinstance(runbook.steps, list) else []
@@ -44,7 +42,7 @@ class RunbookEngine:
                 step_index=i,
                 step_name=step_name,
                 status="running",
-                started_at=datetime.now(timezone.utc),
+                started_at=datetime.now(UTC),
             )
             self.db.add(step_exec)
             await self.db.commit()
@@ -53,25 +51,25 @@ class RunbookEngine:
                 result_data = await self._execute_step(step)
                 step_exec.status = "completed"
                 step_exec.result = result_data
-                step_exec.completed_at = datetime.now(timezone.utc)
+                step_exec.completed_at = datetime.now(UTC)
                 await self.db.commit()
             except Exception as e:
                 step_exec.status = "failed"
                 step_exec.error = str(e)
-                step_exec.completed_at = datetime.now(timezone.utc)
+                step_exec.completed_at = datetime.now(UTC)
                 await self.db.commit()
 
                 if on_failure == "stop":
                     execution.status = "failed"
                     execution.error = f"Step '{step_name}' failed: {e}"
-                    execution.completed_at = datetime.now(timezone.utc)
+                    execution.completed_at = datetime.now(UTC)
                     await self.db.commit()
                     return
                 elif on_failure == "skip":
                     continue
 
         execution.status = "completed"
-        execution.completed_at = datetime.now(timezone.utc)
+        execution.completed_at = datetime.now(UTC)
         await self.db.commit()
 
     async def _execute_step(self, step: dict) -> dict:

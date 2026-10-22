@@ -2,16 +2,16 @@
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import create_engine, select, func
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
-from app.assets.models import Asset, SoftwareInventory
 from app.alerting.models import Alert
-from app.vulnerabilities.models import Vulnerability, VulnerabilityScan
+from app.assets.models import Asset, SoftwareInventory
 from app.config import settings
 from app.tasks.celery_app import celery
+from app.vulnerabilities.models import Vulnerability, VulnerabilityScan
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +57,7 @@ def scan_all_assets():
     """Scan all assets for vulnerabilities."""
     session = _get_sync_session()
     try:
-        assets = session.execute(
-            select(Asset).where(Asset.status == "active")
-        ).scalars().all()
+        assets = session.execute(select(Asset).where(Asset.status == "active")).scalars().all()
 
         for asset in assets:
             try:
@@ -74,7 +72,7 @@ def scan_all_assets():
 
 def _scan_asset(session: Session, asset: Asset):
     """Scan a single asset's software inventory for vulnerabilities."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Create scan record
     scan = VulnerabilityScan(
@@ -87,14 +85,16 @@ def _scan_asset(session: Session, asset: Asset):
     session.flush()
 
     # Get software inventory
-    software = session.execute(
-        select(SoftwareInventory).where(SoftwareInventory.asset_id == asset.id)
-    ).scalars().all()
+    software = (
+        session.execute(select(SoftwareInventory).where(SoftwareInventory.asset_id == asset.id))
+        .scalars()
+        .all()
+    )
 
     if not software:
         scan.status = "completed"
         scan.packages_scanned = 0
-        scan.completed_at = datetime.now(timezone.utc)
+        scan.completed_at = datetime.now(UTC)
         return
 
     ecosystem = _guess_ecosystem(
@@ -111,11 +111,12 @@ def _scan_asset(session: Session, asset: Asset):
 
     try:
         from app.vulnerabilities.scanner import batch_query_osv
+
         results = loop.run_until_complete(batch_query_osv(packages, ecosystem))
     except Exception as e:
         scan.status = "failed"
         scan.error = str(e)
-        scan.completed_at = datetime.now(timezone.utc)
+        scan.completed_at = datetime.now(UTC)
         logger.error(f"Vulnerability scan failed for asset {asset.id}: {e}")
         return
     finally:
@@ -171,7 +172,7 @@ def _scan_asset(session: Session, asset: Asset):
     scan.status = "completed"
     scan.packages_scanned = len(packages)
     scan.vulnerabilities_found = total_vulns
-    scan.completed_at = datetime.now(timezone.utc)
+    scan.completed_at = datetime.now(UTC)
 
     # Fire alert for new critical/high vulnerabilities
     if new_critical > 0:
@@ -183,7 +184,7 @@ def _scan_asset(session: Session, asset: Asset):
             severity="critical" if new_critical >= 5 else "warning",
             title=f"New vulnerabilities found on {asset.hostname}",
             message=f"{new_critical} new critical/high severity vulnerabilities detected "
-                    f"across {len(results)} packages on {asset.hostname}.",
+            f"across {len(results)} packages on {asset.hostname}.",
             fired_at=now,
         )
         session.add(alert)

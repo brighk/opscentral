@@ -1,13 +1,14 @@
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, JSON, Uuid
+from sqlalchemy import JSON, Boolean, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, UUIDMixin, TimestampMixin
+from app.db.base import Base, TimestampMixin, UUIDMixin
 
 
 class CustomDashboard(Base, UUIDMixin, TimestampMixin):
     """A user-created custom dashboard."""
+
     __tablename__ = "custom_dashboards"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
@@ -25,6 +26,7 @@ class CustomDashboard(Base, UUIDMixin, TimestampMixin):
 
 class DashboardWidget(Base, UUIDMixin, TimestampMixin):
     """A widget on a custom dashboard."""
+
     __tablename__ = "dashboard_widgets"
 
     dashboard_id: Mapped[uuid.UUID] = mapped_column(

@@ -34,7 +34,9 @@ class JiraProvider(IntegrationProvider):
                     "content": [
                         {
                             "type": "paragraph",
-                            "content": [{"type": "text", "text": alert_data.get("description", "")}],
+                            "content": [
+                                {"type": "text", "text": alert_data.get("description", "")}
+                            ],
                         }
                     ],
                 },

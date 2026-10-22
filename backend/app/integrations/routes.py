@@ -1,15 +1,15 @@
 import json
 import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.dependencies import get_current_user, require_role
-from app.integrations.dispatcher import compute_signature, dispatch_webhook
+from app.integrations.dispatcher import dispatch_webhook
 from app.integrations.event_types import EVENT_TYPES
 from app.integrations.models import ExternalIntegration, WebhookDelivery, WebhookEndpoint
 from app.integrations.schemas import (
@@ -167,7 +167,7 @@ async def test_webhook(
     test_payload = {
         "event": "test",
         "message": "This is a test webhook from OpsCentral",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
     count = await dispatch_webhook(db, str(user.tenant_id), "test", test_payload)
     return {"detail": "Test webhook sent", "deliveries": count}
@@ -279,11 +279,14 @@ async def test_integration(
 
     # For now, just verify config is valid JSON
     try:
-        config = json.loads(integration.config)
+        json.loads(integration.config)
     except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid integration configuration")
+        raise HTTPException(status_code=400, detail="Invalid integration configuration") from None
 
-    return {"detail": f"Connection test for {integration.provider} successful", "provider": integration.provider}
+    return {
+        "detail": f"Connection test for {integration.provider} successful",
+        "provider": integration.provider,
+    }
 
 
 # --- Helpers ---

@@ -1,8 +1,9 @@
 """SSL certificate expiration checker."""
 
-import ssl
 import socket
-from datetime import datetime, timezone
+import ssl
+from datetime import UTC, datetime
+from typing import cast
 from urllib.parse import urlparse
 
 
@@ -20,22 +21,26 @@ def check_ssl_cert(url: str, timeout: int = 10) -> dict | None:
 
     try:
         ctx = ssl.create_default_context()
-        with socket.create_connection((hostname, port), timeout=timeout) as sock:
-            with ctx.wrap_socket(sock, server_hostname=hostname) as ssock:
-                cert = ssock.getpeercert()
+        with (
+            socket.create_connection((hostname, port), timeout=timeout) as sock,
+            ctx.wrap_socket(sock, server_hostname=hostname) as ssock,
+        ):
+            cert = ssock.getpeercert()
+        if not cert:
+            raise ValueError("Server did not present a certificate")
 
-        not_after = datetime.strptime(cert["notAfter"], "%b %d %H:%M:%S %Y %Z").replace(
-            tzinfo=timezone.utc
+        not_after = datetime.strptime(str(cert["notAfter"]), "%b %d %H:%M:%S %Y %Z").replace(
+            tzinfo=UTC
         )
-        not_before = datetime.strptime(cert["notBefore"], "%b %d %H:%M:%S %Y %Z").replace(
-            tzinfo=timezone.utc
+        not_before = datetime.strptime(str(cert["notBefore"]), "%b %d %H:%M:%S %Y %Z").replace(
+            tzinfo=UTC
         )
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         days_until_expiry = (not_after - now).days
 
         # Extract issuer and subject
-        issuer = dict(x[0] for x in cert.get("issuer", []))
-        subject = dict(x[0] for x in cert.get("subject", []))
+        issuer: dict[str, str] = dict(rdn[0] for rdn in cast(tuple, cert.get("issuer", ())))
+        subject: dict[str, str] = dict(rdn[0] for rdn in cast(tuple, cert.get("subject", ())))
 
         return {
             "issuer": issuer.get("organizationName", issuer.get("commonName", "Unknown")),

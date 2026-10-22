@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.dependencies import get_current_user, require_role
+from app.runbooks.engine import RunbookEngine
 from app.runbooks.models import Runbook, RunbookExecution, RunbookStepExecution
 from app.runbooks.schemas import (
     RunbookCreate,
@@ -16,7 +17,6 @@ from app.runbooks.schemas import (
     RunbookStepExecutionResponse,
     RunbookUpdate,
 )
-from app.runbooks.engine import RunbookEngine
 
 router = APIRouter(prefix="/api/v1/runbooks", tags=["runbooks"])
 
@@ -256,7 +256,7 @@ async def cancel_execution(
         raise HTTPException(status_code=400, detail="Cannot cancel this execution")
 
     execution.status = "cancelled"
-    execution.completed_at = datetime.now(timezone.utc)
+    execution.completed_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(execution)
     return execution

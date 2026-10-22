@@ -1,7 +1,6 @@
 """Vulnerability scanner using the OSV.dev API (free, no API key required)."""
 
 import logging
-from datetime import datetime, timezone
 
 import httpx
 
@@ -42,7 +41,9 @@ def score_to_severity(score: float | None) -> str:
     return "unknown"
 
 
-async def query_osv(package_name: str, version: str | None, ecosystem: str = "Arch Linux") -> list[dict]:
+async def query_osv(
+    package_name: str, version: str | None, ecosystem: str = "Arch Linux"
+) -> list[dict]:
     """Query OSV.dev for vulnerabilities affecting a specific package.
 
     Returns a list of vulnerability dicts with keys:
@@ -102,7 +103,11 @@ async def query_osv(package_name: str, version: str | None, ecosystem: str = "Ar
                 # Map text severity if no numeric score
                 if severity_str == "unknown":
                     for sev in vuln.get("severity", []):
-                        s = sev.get("score", "").lower() if isinstance(sev.get("score"), str) else ""
+                        s = (
+                            sev.get("score", "").lower()
+                            if isinstance(sev.get("score"), str)
+                            else ""
+                        )
                         if "critical" in s or (score and score >= 9.0):
                             severity_str = "critical"
                         elif "high" in s or (score and score >= 7.0):
@@ -122,19 +127,23 @@ async def query_osv(package_name: str, version: str | None, ecosystem: str = "Ar
                         if len(versions) <= 5:
                             affected_ranges = ", ".join(versions)
                         else:
-                            affected_ranges = f"{versions[0]} ... {versions[-1]} ({len(versions)} versions)"
+                            affected_ranges = (
+                                f"{versions[0]} ... {versions[-1]} ({len(versions)} versions)"
+                            )
 
                 details_url = f"https://osv.dev/vulnerability/{vuln['id']}"
 
-                results.append({
-                    "cve_id": cve_id,
-                    "severity": severity_str,
-                    "score": score,
-                    "summary": (vuln.get("summary") or vuln.get("details", ""))[:500],
-                    "details_url": details_url,
-                    "affected_versions": affected_ranges or None,
-                    "fixed_version": fixed_version,
-                })
+                results.append(
+                    {
+                        "cve_id": cve_id,
+                        "severity": severity_str,
+                        "score": score,
+                        "summary": (vuln.get("summary") or vuln.get("details", ""))[:500],
+                        "details_url": details_url,
+                        "affected_versions": affected_ranges or None,
+                        "fixed_version": fixed_version,
+                    }
+                )
 
     except Exception as e:
         logger.error(f"Error querying OSV for {package_name}: {e}")
@@ -142,7 +151,9 @@ async def query_osv(package_name: str, version: str | None, ecosystem: str = "Ar
     return results
 
 
-async def batch_query_osv(packages: list[dict], ecosystem: str = "Arch Linux") -> dict[str, list[dict]]:
+async def batch_query_osv(
+    packages: list[dict], ecosystem: str = "Arch Linux"
+) -> dict[str, list[dict]]:
     """Query OSV for multiple packages. Returns {package_name: [vulns]}.
 
     Uses the batch endpoint for efficiency.
@@ -170,8 +181,8 @@ async def batch_query_osv(packages: list[dict], ecosystem: str = "Arch Linux") -
         async with httpx.AsyncClient(timeout=30) as client:
             # OSV batch endpoint handles up to 1000 queries
             for i in range(0, len(queries), 1000):
-                batch = queries[i:i + 1000]
-                batch_keys = pkg_keys[i:i + 1000]
+                batch = queries[i : i + 1000]
+                batch_keys = pkg_keys[i : i + 1000]
 
                 resp = await client.post(
                     f"{OSV_API_URL}/querybatch",

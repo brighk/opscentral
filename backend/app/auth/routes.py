@@ -1,7 +1,8 @@
 import re
 import uuid
+from datetime import UTC
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,7 +26,7 @@ from app.auth.security import (
 )
 from app.db.session import get_db
 from app.dependencies import get_current_user, require_role
-from app.exceptions import BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError
+from app.exceptions import BadRequestError, NotFoundError, UnauthorizedError
 from app.pagination import PaginationParams
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -87,7 +88,7 @@ async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
         if payload.get("type") != "refresh":
             raise UnauthorizedError("Invalid token type")
     except JWTError:
-        raise UnauthorizedError("Invalid refresh token")
+        raise UnauthorizedError("Invalid refresh token") from None
 
     user_id = payload.get("sub")
     result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
@@ -116,15 +117,14 @@ async def get_me(user: User = Depends(get_current_user)):
 
 # --- User Management (admin only) ---
 
+
 @router.get("/users")
 async def list_users(
     user: User = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(User)
-        .where(User.tenant_id == user.tenant_id)
-        .order_by(User.created_at.desc())
+        select(User).where(User.tenant_id == user.tenant_id).order_by(User.created_at.desc())
     )
     users = result.scalars().all()
     return [
@@ -166,19 +166,22 @@ async def invite_user(
     await db.flush()
 
     # Audit log
-    from app.auth.audit_models import AuditLog
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    db.add(AuditLog(
-        tenant_id=user.tenant_id,
-        user_id=user.id,
-        user_email=user.email,
-        action="user.invite",
-        resource_type="user",
-        resource_id=str(new_user.id),
-        details={"invited_email": body.email, "role": body.role},
-        performed_at=datetime.now(timezone.utc),
-    ))
+    from app.auth.audit_models import AuditLog
+
+    db.add(
+        AuditLog(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            user_email=user.email,
+            action="user.invite",
+            resource_type="user",
+            resource_id=str(new_user.id),
+            details={"invited_email": body.email, "role": body.role},
+            performed_at=datetime.now(UTC),
+        )
+    )
 
     return {"status": "invited", "user_id": str(new_user.id)}
 
@@ -207,22 +210,25 @@ async def update_user_role(
         raise BadRequestError("Cannot change your own role")
 
     target.role = body.role
-    target.is_admin = (body.role == "admin")
+    target.is_admin = body.role == "admin"
 
     # Audit log
-    from app.auth.audit_models import AuditLog
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    db.add(AuditLog(
-        tenant_id=user.tenant_id,
-        user_id=user.id,
-        user_email=user.email,
-        action="user.role_change",
-        resource_type="user",
-        resource_id=str(target.id),
-        details={"new_role": body.role, "target_email": target.email},
-        performed_at=datetime.now(timezone.utc),
-    ))
+    from app.auth.audit_models import AuditLog
+
+    db.add(
+        AuditLog(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            user_email=user.email,
+            action="user.role_change",
+            resource_type="user",
+            resource_id=str(target.id),
+            details={"new_role": body.role, "target_email": target.email},
+            performed_at=datetime.now(UTC),
+        )
+    )
 
     return {"status": "updated", "role": body.role}
 
@@ -255,8 +261,9 @@ async def get_audit_log(
     user: User = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.auth.audit_models import AuditLog
     from sqlalchemy import func as sa_func
+
+    from app.auth.audit_models import AuditLog
 
     base = select(AuditLog).where(AuditLog.tenant_id == user.tenant_id)
     total_result = await db.execute(select(sa_func.count()).select_from(base.subquery()))

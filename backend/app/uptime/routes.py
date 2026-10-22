@@ -1,13 +1,13 @@
 """Uptime monitoring routes — uptime stats, SSL cert info, and public status page."""
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, func, case
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.models import User, Tenant
+from app.auth.models import Tenant, User
 from app.db.session import get_db
 from app.dependencies import get_current_user
 from app.exceptions import NotFoundError
@@ -27,7 +27,7 @@ async def get_uptime_stats(
     """Get uptime percentage and response time stats for health checks."""
     period_map = {"1h": 1, "6h": 6, "24h": 24, "7d": 168, "30d": 720}
     hours = period_map[period]
-    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    since = datetime.now(UTC) - timedelta(hours=hours)
 
     # Get checks for this tenant
     check_query = select(HealthCheck).where(
@@ -66,21 +66,31 @@ async def get_uptime_stats(
         if check.check_type == "http" and check.target.startswith("https://"):
             ssl_info = check_ssl_cert(check.target, timeout=check.timeout_seconds)
 
-        stats.append({
-            "check_id": str(check.id),
-            "name": check.name,
-            "check_type": check.check_type,
-            "target": check.target,
-            "status": check.status,
-            "uptime_percent": uptime_pct,
-            "total_checks": total,
-            "successful_checks": up_count,
-            "avg_response_time_ms": round(float(row.avg_response_time), 2) if row.avg_response_time else None,
-            "min_response_time_ms": round(float(row.min_response_time), 2) if row.min_response_time else None,
-            "max_response_time_ms": round(float(row.max_response_time), 2) if row.max_response_time else None,
-            "last_checked_at": check.last_checked_at.isoformat() if check.last_checked_at else None,
-            "ssl_certificate": ssl_info,
-        })
+        stats.append(
+            {
+                "check_id": str(check.id),
+                "name": check.name,
+                "check_type": check.check_type,
+                "target": check.target,
+                "status": check.status,
+                "uptime_percent": uptime_pct,
+                "total_checks": total,
+                "successful_checks": up_count,
+                "avg_response_time_ms": round(float(row.avg_response_time), 2)
+                if row.avg_response_time
+                else None,
+                "min_response_time_ms": round(float(row.min_response_time), 2)
+                if row.min_response_time
+                else None,
+                "max_response_time_ms": round(float(row.max_response_time), 2)
+                if row.max_response_time
+                else None,
+                "last_checked_at": check.last_checked_at.isoformat()
+                if check.last_checked_at
+                else None,
+                "ssl_certificate": ssl_info,
+            }
+        )
 
     return stats
 
@@ -104,7 +114,7 @@ async def get_response_times(
         raise NotFoundError("Health check not found")
 
     period_map = {"1h": 1, "6h": 6, "24h": 24, "7d": 168, "30d": 720}
-    since = datetime.now(timezone.utc) - timedelta(hours=period_map[period])
+    since = datetime.now(UTC) - timedelta(hours=period_map[period])
 
     result = await db.execute(
         select(
@@ -186,14 +196,16 @@ async def public_status_page(
 
     # Get enabled health checks for this tenant
     checks_result = await db.execute(
-        select(HealthCheck).where(
+        select(HealthCheck)
+        .where(
             HealthCheck.tenant_id == tenant.id,
             HealthCheck.is_enabled == True,  # noqa: E712
-        ).order_by(HealthCheck.name)
+        )
+        .order_by(HealthCheck.name)
     )
     checks = checks_result.scalars().all()
 
-    since_24h = datetime.now(timezone.utc) - timedelta(hours=24)
+    since_24h = datetime.now(UTC) - timedelta(hours=24)
 
     services = []
     for check in checks:
@@ -212,13 +224,17 @@ async def public_status_page(
         up_count = int(row.up_count or 0)
         uptime_pct = round((up_count / total) * 100, 2) if total > 0 else None
 
-        services.append({
-            "name": check.name,
-            "status": check.status,
-            "uptime_24h": uptime_pct,
-            "last_checked_at": check.last_checked_at.isoformat() if check.last_checked_at else None,
-            "response_time_ms": check.last_response_time_ms,
-        })
+        services.append(
+            {
+                "name": check.name,
+                "status": check.status,
+                "uptime_24h": uptime_pct,
+                "last_checked_at": check.last_checked_at.isoformat()
+                if check.last_checked_at
+                else None,
+                "response_time_ms": check.last_response_time_ms,
+            }
+        )
 
     # Overall status
     all_up = all(s["status"] == "up" for s in services) if services else True
@@ -229,5 +245,5 @@ async def public_status_page(
         "organization": tenant.name,
         "overall_status": overall,
         "services": services,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(UTC).isoformat(),
     }

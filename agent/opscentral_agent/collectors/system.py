@@ -30,9 +30,12 @@ def collect_system_info() -> dict:
             if addr.family == socket.AF_INET and not addr.address.startswith("127."):
                 ip_addresses.append(addr.address)
             try:
-                if addr.family == psutil.AF_LINK:
-                    if addr.address and addr.address != "00:00:00:00:00:00":
-                        mac_addresses.append(addr.address)
+                if (
+                    addr.family == psutil.AF_LINK
+                    and addr.address
+                    and addr.address != "00:00:00:00:00:00"
+                ):
+                    mac_addresses.append(addr.address)
             except AttributeError:
                 pass
 
@@ -91,16 +94,16 @@ def collect_software() -> list[dict]:
 _LINUX_PKG_MANAGERS = [
     # (command, args, parser)
     # Each parser takes stdout and returns list[dict]
-    ("pacman",     ["-Q"],                                            "_parse_pacman"),
-    ("dpkg-query", ["-W", "-f", "${Package}\t${Version}\n"],         "_parse_tab"),
-    ("rpm",        ["-qa", "--queryformat", "%{NAME}\t%{VERSION}\n"],"_parse_tab"),
-    ("emerge",     ["--info", "--verbose"],                           None),  # handled specially
-    ("equery",     ["list", "-F", "$name\t$version", "*"],           "_parse_tab"),
-    ("qlist",      ["-Iv"],                                          "_parse_portage_qlist"),
-    ("apk",        ["list", "--installed"],                           "_parse_apk"),
-    ("zypper",     ["se", "--installed-only", "-s"],                  "_parse_zypper"),
-    ("xbps-query", ["-l"],                                           "_parse_xbps"),
-    ("nix-env",    ["-q"],                                            "_parse_nix"),
+    ("pacman", ["-Q"], "_parse_pacman"),
+    ("dpkg-query", ["-W", "-f", "${Package}\t${Version}\n"], "_parse_tab"),
+    ("rpm", ["-qa", "--queryformat", "%{NAME}\t%{VERSION}\n"], "_parse_tab"),
+    ("emerge", ["--info", "--verbose"], None),  # handled specially
+    ("equery", ["list", "-F", "$name\t$version", "*"], "_parse_tab"),
+    ("qlist", ["-Iv"], "_parse_portage_qlist"),
+    ("apk", ["list", "--installed"], "_parse_apk"),
+    ("zypper", ["se", "--installed-only", "-s"], "_parse_zypper"),
+    ("xbps-query", ["-l"], "_parse_xbps"),
+    ("nix-env", ["-q"], "_parse_nix"),
 ]
 
 
@@ -114,8 +117,10 @@ def _collect_linux_software() -> list[dict]:
             continue  # skip entries without a parser (emerge --info is metadata, not a list)
         try:
             result = subprocess.run(
-                [cmd] + args,
-                capture_output=True, text=True, timeout=30,
+                [cmd, *args],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if result.returncode == 0 and result.stdout.strip():
                 parser = globals()[parser_name]
@@ -165,10 +170,7 @@ def _parse_portage_qlist(stdout: str) -> list[dict]:
         if not line:
             continue
         # e.g. "sys-apps/portage-2.3.99"
-        if "/" in line:
-            cat_name_ver = line.split("/", 1)[1]
-        else:
-            cat_name_ver = line
+        cat_name_ver = line.split("/", 1)[1] if "/" in line else line
         # Split name from version: last hyphen before a digit
         name, version = _split_name_version(cat_name_ver)
         software.append({"name": name, "version": version})
@@ -226,7 +228,7 @@ def _split_name_version(s: str) -> tuple[str, str]:
     # Walk backwards to find the last hyphen before a digit
     for i in range(len(s) - 1, 0, -1):
         if s[i] == "-" and i + 1 < len(s) and s[i + 1].isdigit():
-            return s[:i], s[i + 1:]
+            return s[:i], s[i + 1 :]
     return s, ""
 
 
@@ -285,11 +287,13 @@ def _scan_filesystem_binaries(known_packages: list[dict]) -> list[dict]:
                     name = app_dir.name
                     if name not in known_names and name not in seen:
                         version = _try_get_version(app_dir)
-                        found.append({
-                            "name": name,
-                            "version": version,
-                            "publisher": f"source-installed ({scan_dir})",
-                        })
+                        found.append(
+                            {
+                                "name": name,
+                                "version": version,
+                                "publisher": f"source-installed ({scan_dir})",
+                            }
+                        )
                         seen.add(name)
             else:
                 for binary in dir_path.iterdir():
@@ -304,11 +308,13 @@ def _scan_filesystem_binaries(known_packages: list[dict]) -> list[dict]:
                     if name.startswith(".") or name.startswith("_"):
                         continue
                     version = _try_get_binary_version(binary)
-                    found.append({
-                        "name": name,
-                        "version": version,
-                        "publisher": f"source-installed ({scan_dir})",
-                    })
+                    found.append(
+                        {
+                            "name": name,
+                            "version": version,
+                            "publisher": f"source-installed ({scan_dir})",
+                        }
+                    )
                     seen.add(name)
                     if len(found) >= 100:
                         return found
@@ -336,12 +342,15 @@ def _try_get_binary_version(binary: Path) -> str:
     try:
         result = subprocess.run(
             [str(binary), "--version"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0 and result.stdout.strip():
             first_line = result.stdout.strip().split("\n")[0]
             # Extract version-like pattern from the first line
             import re
+
             match = re.search(r"(\d+\.\d+[\.\d]*)", first_line)
             if match:
                 return match.group(1)
@@ -355,39 +364,44 @@ def _try_get_binary_version(binary: Path) -> str:
 # Windows
 # ---------------------------------------------------------------------------
 
+
 def _collect_windows_software() -> list[dict]:
     """Collect from Windows registry (both 64-bit and 32-bit paths) + scan Program Files."""
     software = []
 
     # Registry query via PowerShell — covers both 64 and 32-bit
     ps_cmd = (
-        '$paths = @('
+        "$paths = @("
         '"HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*",'
         '"HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*",'
         '"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*"'
-        '); '
-        'foreach ($p in $paths) { '
-        'Get-ItemProperty $p -ErrorAction SilentlyContinue '
-        '| Where-Object { $_.DisplayName -ne $null } '
-        '| Select-Object DisplayName, DisplayVersion, Publisher '
-        '} | Sort-Object DisplayName -Unique '
-        '| ConvertTo-Csv -NoTypeInformation'
+        "); "
+        "foreach ($p in $paths) { "
+        "Get-ItemProperty $p -ErrorAction SilentlyContinue "
+        "| Where-Object { $_.DisplayName -ne $null } "
+        "| Select-Object DisplayName, DisplayVersion, Publisher "
+        "} | Sort-Object DisplayName -Unique "
+        "| ConvertTo-Csv -NoTypeInformation"
     )
     try:
         result = subprocess.run(
             ["powershell", "-Command", ps_cmd],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode == 0:
             lines = result.stdout.strip().split("\n")
             for line in lines[1:401]:  # skip header, cap at 400
                 parts = [p.strip('"') for p in line.split('","')]
                 if len(parts) >= 1 and parts[0]:
-                    software.append({
-                        "name": parts[0],
-                        "version": parts[1] if len(parts) > 1 else None,
-                        "publisher": parts[2] if len(parts) > 2 else None,
-                    })
+                    software.append(
+                        {
+                            "name": parts[0],
+                            "version": parts[1] if len(parts) > 1 else None,
+                            "publisher": parts[2] if len(parts) > 2 else None,
+                        }
+                    )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
 
@@ -400,11 +414,13 @@ def _collect_windows_software() -> list[dict]:
         try:
             for app_dir in pf.iterdir():
                 if app_dir.is_dir() and app_dir.name.lower() not in known_names:
-                    software.append({
-                        "name": app_dir.name,
-                        "version": "",
-                        "publisher": f"found in {pf_dir}",
-                    })
+                    software.append(
+                        {
+                            "name": app_dir.name,
+                            "version": "",
+                            "publisher": f"found in {pf_dir}",
+                        }
+                    )
         except PermissionError:
             pass
 
@@ -414,6 +430,7 @@ def _collect_windows_software() -> list[dict]:
 # ---------------------------------------------------------------------------
 # macOS
 # ---------------------------------------------------------------------------
+
 
 def _collect_macos_software() -> list[dict]:
     """Collect from /Applications + Homebrew if available."""
@@ -432,7 +449,9 @@ def _collect_macos_software() -> list[dict]:
     try:
         result = subprocess.run(
             ["brew", "list", "--versions"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode == 0:
             for line in result.stdout.strip().split("\n"):
@@ -455,7 +474,9 @@ def _get_macos_app_version(app_path: Path) -> str:
     try:
         result = subprocess.run(
             ["defaults", "read", str(plist), "CFBundleShortVersionString"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             return result.stdout.strip()

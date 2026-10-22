@@ -4,15 +4,15 @@ import asyncio
 import logging
 import socket
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
+from app.alerting.models import Alert
 from app.config import settings
 from app.healthchecks.models import HealthCheck, HealthCheckLog
-from app.alerting.models import Alert
 from app.tasks.celery_app import celery
 
 logger = logging.getLogger(__name__)
@@ -30,11 +30,15 @@ def run_health_checks():
     """Execute all enabled health checks that are due."""
     session = _get_sync_session()
     try:
-        checks = session.execute(
-            select(HealthCheck).where(HealthCheck.is_enabled == True)  # noqa: E712
-        ).scalars().all()
+        checks = (
+            session.execute(
+                select(HealthCheck).where(HealthCheck.is_enabled == True)  # noqa: E712
+            )
+            .scalars()
+            .all()
+        )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for check in checks:
             # Skip if not due yet
@@ -82,10 +86,9 @@ def _execute_check(session: Session, check: HealthCheck, now: datetime):
         check.consecutive_failures = 0
     else:
         check.consecutive_failures += 1
-        if check.consecutive_failures >= check.alert_after_failures:
-            if check.status != "down":
-                check.status = "down"
-                _fire_healthcheck_alert(session, check, now)
+        if check.consecutive_failures >= check.alert_after_failures and check.status != "down":
+            check.status = "down"
+            _fire_healthcheck_alert(session, check, now)
 
 
 def _run_check(check: HealthCheck) -> dict:
@@ -97,7 +100,11 @@ def _run_check(check: HealthCheck) -> dict:
     elif check.check_type == "dns":
         return _check_dns(check)
     else:
-        return {"status": "down", "response_time_ms": 0, "error": f"Unknown check type: {check.check_type}"}
+        return {
+            "status": "down",
+            "response_time_ms": 0,
+            "error": f"Unknown check type: {check.check_type}",
+        }
 
 
 def _check_http(check: HealthCheck) -> dict:
@@ -123,7 +130,9 @@ def _check_http(check: HealthCheck) -> dict:
                 "status": "up" if status_ok else "down",
                 "response_time_ms": round(elapsed_ms, 2),
                 "status_code": resp.status_code,
-                "error": None if status_ok else f"Expected status {check.expected_status}, got {resp.status_code}",
+                "error": None
+                if status_ok
+                else f"Expected status {check.expected_status}, got {resp.status_code}",
             }
     except Exception as e:
         elapsed_ms = (time.monotonic() - start) * 1000
@@ -162,7 +171,11 @@ def _check_dns(check: HealthCheck) -> dict:
         elapsed_ms = (time.monotonic() - start) * 1000
         if result:
             return {"status": "up", "response_time_ms": round(elapsed_ms, 2)}
-        return {"status": "down", "response_time_ms": round(elapsed_ms, 2), "error": "No DNS records found"}
+        return {
+            "status": "down",
+            "response_time_ms": round(elapsed_ms, 2),
+            "error": "No DNS records found",
+        }
     except Exception as e:
         elapsed_ms = (time.monotonic() - start) * 1000
         return {"status": "down", "response_time_ms": round(elapsed_ms, 2), "error": str(e)}
@@ -171,6 +184,7 @@ def _check_dns(check: HealthCheck) -> dict:
 def _fire_healthcheck_alert(session: Session, check: HealthCheck, now: datetime):
     """Create an alert when a health check fails."""
     from app.maintenance.checker import is_in_maintenance
+
     if is_in_maintenance(session, check.tenant_id, check_id=check.id):
         logger.info(f"Health check {check.id} alert suppressed: in maintenance window")
         return
@@ -183,8 +197,8 @@ def _fire_healthcheck_alert(session: Session, check: HealthCheck, now: datetime)
         severity="critical",
         title=f"Service down: {check.name}",
         message=f"Health check '{check.name}' ({check.check_type}://{check.target}) "
-                f"failed {check.consecutive_failures} consecutive times. "
-                f"Error: {check.last_error}",
+        f"failed {check.consecutive_failures} consecutive times. "
+        f"Error: {check.last_error}",
         fired_at=now,
     )
     session.add(alert)
@@ -192,15 +206,19 @@ def _fire_healthcheck_alert(session: Session, check: HealthCheck, now: datetime)
     # Dispatch to notification channels
     if check.notify_channels:
         try:
-            from app.notifications.models import NotificationChannel
             from app.notifications.dispatchers import dispatch_notification
+            from app.notifications.models import NotificationChannel
 
-            channels = session.execute(
-                select(NotificationChannel).where(
-                    NotificationChannel.tenant_id == check.tenant_id,
-                    NotificationChannel.is_enabled == True,  # noqa: E712
+            channels = (
+                session.execute(
+                    select(NotificationChannel).where(
+                        NotificationChannel.tenant_id == check.tenant_id,
+                        NotificationChannel.is_enabled == True,  # noqa: E712
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
 
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -222,13 +240,17 @@ def _fire_healthcheck_alert(session: Session, check: HealthCheck, now: datetime)
 
 def _resolve_healthcheck_alert(session: Session, check: HealthCheck, now: datetime):
     """Auto-resolve firing alerts for a recovered health check."""
-    existing = session.execute(
-        select(Alert).where(
-            Alert.tenant_id == check.tenant_id,
-            Alert.title.like(f"%{check.name}%"),
-            Alert.status.in_(["firing", "acknowledged"]),
+    existing = (
+        session.execute(
+            select(Alert).where(
+                Alert.tenant_id == check.tenant_id,
+                Alert.title.like(f"%{check.name}%"),
+                Alert.status.in_(["firing", "acknowledged"]),
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     for alert in existing:
         alert.status = "resolved"

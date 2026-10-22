@@ -6,24 +6,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.dependencies import get_current_user, require_role
-from app.oncall.models import OnCallSchedule, OnCallOverride, EscalationPolicy
+from app.oncall.models import EscalationPolicy, OnCallOverride, OnCallSchedule
+from app.oncall.resolver import get_current_oncall
 from app.oncall.schemas import (
-    OnCallScheduleCreate,
-    OnCallScheduleUpdate,
-    OnCallScheduleResponse,
+    CurrentOnCallResponse,
+    EscalationPolicyCreate,
+    EscalationPolicyResponse,
+    EscalationPolicyUpdate,
     OnCallOverrideCreate,
     OnCallOverrideResponse,
-    EscalationPolicyCreate,
-    EscalationPolicyUpdate,
-    EscalationPolicyResponse,
-    CurrentOnCallResponse,
+    OnCallScheduleCreate,
+    OnCallScheduleResponse,
+    OnCallScheduleUpdate,
 )
-from app.oncall.resolver import get_current_oncall
 
 router = APIRouter(prefix="/api/v1/oncall", tags=["oncall"])
 
 
 # --- Schedules ---
+
 
 @router.get("/schedules", response_model=list[OnCallScheduleResponse])
 async def list_schedules(
@@ -166,6 +167,7 @@ async def get_current(
 
 # --- Overrides ---
 
+
 @router.get("/schedules/{schedule_id}/overrides", response_model=list[OnCallOverrideResponse])
 async def list_overrides(
     schedule_id: uuid.UUID,
@@ -235,6 +237,7 @@ async def delete_override(
 
 
 # --- Escalation Policies ---
+
 
 @router.get("/policies", response_model=list[EscalationPolicyResponse])
 async def list_policies(
@@ -348,8 +351,7 @@ async def whoami(
 ):
     """Find all schedules where the current user is on call."""
     result = await db.execute(
-        select(OnCallSchedule)
-        .where(
+        select(OnCallSchedule).where(
             OnCallSchedule.tenant_id == user.tenant_id,
             OnCallSchedule.is_active.is_(True),
         )
@@ -359,10 +361,12 @@ async def whoami(
     for schedule in schedules:
         current_user_id, is_override = await get_current_oncall(db, schedule.id)
         if current_user_id == str(user.id):
-            on_call_for.append(CurrentOnCallResponse(
-                schedule_id=schedule.id,
-                schedule_name=schedule.name,
-                user_id=current_user_id,
-                is_override=is_override,
-            ))
+            on_call_for.append(
+                CurrentOnCallResponse(
+                    schedule_id=schedule.id,
+                    schedule_name=schedule.name,
+                    user_id=current_user_id,
+                    is_override=is_override,
+                )
+            )
     return on_call_for

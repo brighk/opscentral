@@ -1,15 +1,15 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import create_engine, select, func, update
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
-from app.alerting.models import Alert, AlertRule
 from app.agents.models import Agent
-from app.auth.models import Tenant, User
-from app.monitoring.models import Metric
+from app.alerting.models import Alert, AlertRule
+from app.auth.models import User
 from app.config import settings
+from app.monitoring.models import Metric
 from app.tasks.celery_app import celery
 
 logger = logging.getLogger(__name__)
@@ -36,11 +36,15 @@ def evaluate_alert_rules():
     """Evaluate all enabled alert rules against recent metrics."""
     session = _get_sync_session()
     try:
-        rules = session.execute(
-            select(AlertRule).where(AlertRule.is_enabled == True)  # noqa: E712
-        ).scalars().all()
+        rules = (
+            session.execute(
+                select(AlertRule).where(AlertRule.is_enabled == True)  # noqa: E712
+            )
+            .scalars()
+            .all()
+        )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for rule in rules:
             try:
@@ -55,6 +59,7 @@ def evaluate_alert_rules():
 
 def _evaluate_rule(session: Session, rule: AlertRule, now: datetime):
     from app.maintenance.checker import is_in_maintenance
+
     if is_in_maintenance(session, rule.tenant_id, agent_id=rule.agent_id):
         logger.info(f"Rule {rule.id} suppressed: in maintenance window")
         return
@@ -97,7 +102,10 @@ def _evaluate_rule(session: Session, rule: AlertRule, now: datetime):
             status="firing",
             severity=rule.severity,
             title=f"{rule.name}: {condition_text}",
-            message=f"Metric {rule.metric_name} is {avg_value:.2f} (threshold: {rule.condition} {rule.threshold})",
+            message=(
+                f"Metric {rule.metric_name} is {avg_value:.2f} "
+                f"(threshold: {rule.condition} {rule.threshold})"
+            ),
             metric_value=avg_value,
             fired_at=now,
         )
@@ -125,9 +133,13 @@ def _send_notification(session: Session, rule: AlertRule, alert: Alert):
     # Send email to all tenant users if enabled on rule
     if rule.notify_email:
         try:
-            users = session.execute(
-                select(User).where(User.tenant_id == rule.tenant_id, User.is_active == True)  # noqa: E712
-            ).scalars().all()
+            users = (
+                session.execute(
+                    select(User).where(User.tenant_id == rule.tenant_id, User.is_active == True)  # noqa: E712
+                )
+                .scalars()
+                .all()
+            )
 
             from app.notifications.service import send_alert_email
 
@@ -140,15 +152,19 @@ def _send_notification(session: Session, rule: AlertRule, alert: Alert):
 
     # Dispatch to all enabled notification channels for this tenant
     try:
-        from app.notifications.models import NotificationChannel
         from app.notifications.dispatchers import dispatch_notification
+        from app.notifications.models import NotificationChannel
 
-        channels = session.execute(
-            select(NotificationChannel).where(
-                NotificationChannel.tenant_id == rule.tenant_id,
-                NotificationChannel.is_enabled == True,  # noqa: E712
+        channels = (
+            session.execute(
+                select(NotificationChannel).where(
+                    NotificationChannel.tenant_id == rule.tenant_id,
+                    NotificationChannel.is_enabled == True,  # noqa: E712
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         for channel in channels:
             try:
@@ -173,17 +189,21 @@ def detect_stale_agents():
 
     session = _get_sync_session()
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
+        cutoff = datetime.now(UTC) - timedelta(minutes=5)
 
-        stale_agents = session.execute(
-            select(Agent).where(
-                Agent.is_active == True,  # noqa: E712
-                Agent.last_seen is not None,
-                Agent.last_seen < cutoff,
+        stale_agents = (
+            session.execute(
+                select(Agent).where(
+                    Agent.is_active == True,  # noqa: E712
+                    Agent.last_seen.is_not(None),
+                    Agent.last_seen < cutoff,
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for agent in stale_agents:
             # Check if alert already exists
@@ -210,13 +230,16 @@ def detect_stale_agents():
                 session.add(alert)
 
                 # Record offline status transition
-                session.add(AgentStatusLog(
-                    tenant_id=agent.tenant_id,
-                    agent_id=agent.id,
-                    status="offline",
-                    message=f"No heartbeat since {agent.last_seen.isoformat()}",
-                    recorded_at=now,
-                ))
+                last_seen = agent.last_seen.isoformat() if agent.last_seen else "never"
+                session.add(
+                    AgentStatusLog(
+                        tenant_id=agent.tenant_id,
+                        agent_id=agent.id,
+                        status="offline",
+                        message=f"No heartbeat since {last_seen}",
+                        recorded_at=now,
+                    )
+                )
 
         session.commit()
     finally:

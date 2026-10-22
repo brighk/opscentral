@@ -50,6 +50,7 @@ class ActionExecutor:
         # Disk usage
         try:
             import shutil
+
             total, used, free = shutil.disk_usage("/")
             diagnostics["disk"] = {
                 "total_gb": round(total / (1024**3), 1),
@@ -90,6 +91,7 @@ class ActionExecutor:
         # CPU
         try:
             import psutil
+
             checks["cpu_percent"] = psutil.cpu_percent(interval=1)
             checks["memory_percent"] = psutil.virtual_memory().percent
             checks["disk_percent"] = psutil.disk_usage("/").percent
@@ -99,6 +101,7 @@ class ActionExecutor:
         # Network connectivity
         try:
             import socket
+
             s = socket.create_connection(("8.8.8.8", 53), timeout=5)
             s.close()
             checks["network"] = "ok"

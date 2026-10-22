@@ -23,7 +23,11 @@ def collect_cpu() -> list[dict]:
             pass
 
     # Per-CPU usage (works on all platforms)
-    metrics.append({"name": "cpu_count_logical", "value": psutil.cpu_count(logical=True), "unit": ""})
-    metrics.append({"name": "cpu_count_physical", "value": psutil.cpu_count(logical=False) or 0, "unit": ""})
+    metrics.append(
+        {"name": "cpu_count_logical", "value": psutil.cpu_count(logical=True), "unit": ""}
+    )
+    metrics.append(
+        {"name": "cpu_count_physical", "value": psutil.cpu_count(logical=False) or 0, "unit": ""}
+    )
 
     return metrics

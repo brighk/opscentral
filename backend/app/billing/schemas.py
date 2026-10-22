@@ -12,6 +12,7 @@ class SubscriptionResponse(BaseModel):
     asset_count: int = 0
     current_period_start: datetime | None = None
     current_period_end: datetime | None = None
+    has_billing_portal: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}

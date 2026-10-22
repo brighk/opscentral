@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.tasks.celery_app import celery
 
@@ -15,10 +15,8 @@ def cleanup_old_deliveries():
     sync_url = settings.DATABASE_URL.replace("+asyncpg", "")
     engine = create_engine(sync_url)
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    cutoff = datetime.now(UTC) - timedelta(days=30)
     with Session(engine) as session:
-        session.execute(
-            delete(WebhookDelivery).where(WebhookDelivery.created_at < cutoff)
-        )
+        session.execute(delete(WebhookDelivery).where(WebhookDelivery.created_at < cutoff))
         session.commit()
     engine.dispose()

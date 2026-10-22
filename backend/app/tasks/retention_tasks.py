@@ -1,14 +1,15 @@
 """Celery tasks for metric retention and downsampling."""
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from typing import cast
 
-from sqlalchemy import create_engine, delete, func, select, text
+from sqlalchemy import CursorResult, create_engine, delete, text
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.monitoring.models import Metric
 from app.healthchecks.models import HealthCheckLog
+from app.monitoring.models import Metric
 from app.monitoring.process_models import ProcessSnapshot
 from app.tasks.celery_app import celery
 
@@ -17,9 +18,9 @@ logger = logging.getLogger(__name__)
 SYNC_DB_URL = settings.DATABASE_URL.replace("+asyncpg", "")
 
 # Default retention policies (can be overridden per tenant via settings)
-RETENTION_RAW_DAYS = 7           # Keep raw per-minute data for 7 days
-RETENTION_PROCESS_HOURS = 24     # Keep process snapshots for 24 hours (latest is always kept)
-RETENTION_HEALTHLOG_DAYS = 30    # Keep health check logs for 30 days
+RETENTION_RAW_DAYS = 7  # Keep raw per-minute data for 7 days
+RETENTION_PROCESS_HOURS = 24  # Keep process snapshots for 24 hours (latest is always kept)
+RETENTION_HEALTHLOG_DAYS = 30  # Keep health check logs for 30 days
 
 
 def _get_sync_session():
@@ -32,16 +33,16 @@ def cleanup_old_metrics():
     """Delete raw metrics older than the retention period."""
     session = _get_sync_session()
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=RETENTION_RAW_DAYS)
+        cutoff = datetime.now(UTC) - timedelta(days=RETENTION_RAW_DAYS)
 
-        result = session.execute(
-            delete(Metric).where(Metric.recorded_at < cutoff)
-        )
-        deleted = result.rowcount
+        result = session.execute(delete(Metric).where(Metric.recorded_at < cutoff))
+        deleted = cast(CursorResult, result).rowcount
         session.commit()
 
         if deleted > 0:
-            logger.info(f"Retention: deleted {deleted} raw metrics older than {RETENTION_RAW_DAYS} days")
+            logger.info(
+                f"Retention: deleted {deleted} raw metrics older than {RETENTION_RAW_DAYS} days"
+            )
     except Exception as e:
         logger.error(f"Error during metric retention cleanup: {e}")
         session.rollback()
@@ -58,11 +59,11 @@ def cleanup_old_process_snapshots():
     """
     session = _get_sync_session()
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=RETENTION_PROCESS_HOURS)
+        cutoff = datetime.now(UTC) - timedelta(hours=RETENTION_PROCESS_HOURS)
         result = session.execute(
             delete(ProcessSnapshot).where(ProcessSnapshot.recorded_at < cutoff)
         )
-        deleted = result.rowcount
+        deleted = cast(CursorResult, result).rowcount
         session.commit()
         if deleted > 0:
             logger.info(f"Retention: deleted {deleted} old process snapshots")
@@ -78,11 +79,9 @@ def cleanup_old_healthcheck_logs():
     """Delete health check logs older than retention period."""
     session = _get_sync_session()
     try:
-        cutoff = datetime.now(timezone.utc) - timedelta(days=RETENTION_HEALTHLOG_DAYS)
-        result = session.execute(
-            delete(HealthCheckLog).where(HealthCheckLog.checked_at < cutoff)
-        )
-        deleted = result.rowcount
+        cutoff = datetime.now(UTC) - timedelta(days=RETENTION_HEALTHLOG_DAYS)
+        result = session.execute(delete(HealthCheckLog).where(HealthCheckLog.checked_at < cutoff))
+        deleted = cast(CursorResult, result).rowcount
         session.commit()
         if deleted > 0:
             logger.info(f"Retention: deleted {deleted} old health check logs")
@@ -103,26 +102,33 @@ def setup_timescaledb_retention():
     """
     session = _get_sync_session()
     try:
-        dialect = session.bind.dialect.name
+        dialect = session.get_bind().dialect.name
         if dialect != "postgresql":
             logger.info("TimescaleDB retention only applies to PostgreSQL, skipping")
             return
 
         # Check if TimescaleDB is available
         try:
-            session.execute(text("SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'"))
+            session.execute(
+                text("SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'")
+            )
         except Exception:
             logger.info("TimescaleDB extension not found, using manual retention only")
             return
 
         # Try to add retention policy (will no-op if already set)
         try:
-            session.execute(text(
-                f"SELECT add_retention_policy('metrics', INTERVAL '{RETENTION_RAW_DAYS} days', if_not_exists => true)"
-            ))
+            session.execute(
+                text(
+                    "SELECT add_retention_policy('metrics', "
+                    f"INTERVAL '{RETENTION_RAW_DAYS} days', if_not_exists => true)"
+                )
+            )
             logger.info(f"TimescaleDB retention policy set: {RETENTION_RAW_DAYS} days for metrics")
         except Exception as e:
-            logger.debug(f"Could not set TimescaleDB retention policy (table may not be a hypertable): {e}")
+            logger.debug(
+                f"Could not set TimescaleDB retention policy (table may not be a hypertable): {e}"
+            )
 
         session.commit()
     except Exception as e:

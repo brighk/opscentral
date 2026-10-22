@@ -1,10 +1,7 @@
-from typing import Generic, TypeVar
+from collections.abc import Sequence
 
 from fastapi import Query
 from pydantic import BaseModel
-
-
-T = TypeVar("T")
 
 
 class PaginationParams:
@@ -18,8 +15,8 @@ class PaginationParams:
         self.offset = (page - 1) * page_size
 
 
-class PaginatedResponse(BaseModel, Generic[T]):
-    items: list[T]
+class PaginatedResponse[T](BaseModel):
+    items: Sequence[T]
     total: int
     page: int
     page_size: int

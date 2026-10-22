@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, Integer, String, JSON, Uuid, ForeignKey, Index
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -12,9 +12,7 @@ class ProcessSnapshot(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
-    agent_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), nullable=False
-    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), nullable=False)
     pid: Mapped[int] = mapped_column(Integer, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     cpu_percent: Mapped[float] = mapped_column(Float, default=0)

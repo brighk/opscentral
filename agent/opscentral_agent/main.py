@@ -13,8 +13,8 @@ from opscentral_agent.collectors import (
     collect_disk,
     collect_memory,
     collect_network,
-    collect_processes,
     collect_process_summary,
+    collect_processes,
     collect_software,
     collect_system_info,
 )
@@ -74,7 +74,11 @@ def poll_and_execute_actions(client: AgentClient):
             action_id = action.get("id")
             parameters = action.get("parameters")
 
-            if action_type not in config.allowed_actions:
+            if not action_id:
+                logger.warning(f"Ignoring action without an id: {action!r}")
+                continue
+
+            if not action_type or action_type not in config.allowed_actions:
                 client.report_action_result(
                     action_id, "failed", error=f"Action type '{action_type}' is not allowed"
                 )

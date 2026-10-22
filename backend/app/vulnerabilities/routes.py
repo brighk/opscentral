@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
@@ -22,10 +23,7 @@ async def list_vulnerabilities(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    base = (
-        select(Vulnerability)
-        .where(Vulnerability.tenant_id == user.tenant_id)
-    )
+    base = select(Vulnerability).where(Vulnerability.tenant_id == user.tenant_id)
     if asset_id:
         base = base.where(Vulnerability.asset_id == asset_id)
     if severity:
@@ -87,7 +85,7 @@ async def vulnerability_summary(
         .group_by(Vulnerability.severity)
     )
 
-    severity_counts = {row.severity: row.count for row in counts.all()}
+    severity_counts: dict[str, int] = {severity: n for severity, n in counts.tuples()}
 
     total = sum(severity_counts.values())
     return {
@@ -132,7 +130,11 @@ async def vulnerabilities_by_asset(
             assets[aid] = {
                 "asset_id": aid,
                 "hostname": row.hostname,
-                "critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0,
+                "critical": 0,
+                "high": 0,
+                "medium": 0,
+                "low": 0,
+                "total": 0,
             }
         assets[aid][row.severity] = assets[aid].get(row.severity, 0) + row.count
         assets[aid]["total"] += row.count
@@ -173,6 +175,7 @@ async def trigger_scan(
 ):
     """Trigger an immediate vulnerability scan of all assets."""
     from app.tasks.vuln_tasks import scan_all_assets
+
     scan_all_assets.delay()
     return {"status": "scan_queued"}
 
@@ -183,7 +186,8 @@ async def resolve_vulnerability(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from app.exceptions import NotFoundError
 
     result = await db.execute(
@@ -197,5 +201,5 @@ async def resolve_vulnerability(
         raise NotFoundError("Vulnerability not found")
 
     vuln.is_resolved = True
-    vuln.resolved_at = datetime.now(timezone.utc)
+    vuln.resolved_at = datetime.now(UTC)
     return {"status": "resolved"}

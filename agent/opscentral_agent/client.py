@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import httpx
 
@@ -70,9 +71,11 @@ class AgentClient:
             logger.error(f"Failed to poll actions: {e}")
             return []
 
-    def report_action_result(self, action_id: str, status: str, result: dict | None = None, error: str | None = None):
+    def report_action_result(
+        self, action_id: str, status: str, result: dict | None = None, error: str | None = None
+    ):
         try:
-            payload = {"status": status}
+            payload: dict[str, Any] = {"status": status}
             if result is not None:
                 payload["result"] = result
             if error is not None:

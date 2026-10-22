@@ -1,27 +1,28 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.dependencies import get_current_user, require_role
 from app.incidents.models import (
     Incident,
-    IncidentUpdate as IncidentUpdateModel,
-    IncidentTag,
     Postmortem,
+)
+from app.incidents.models import (
+    IncidentUpdate as IncidentUpdateModel,
 )
 from app.incidents.schemas import (
     IncidentCreate,
-    IncidentUpdate,
     IncidentResponse,
+    IncidentStatsResponse,
+    IncidentUpdate,
     IncidentUpdateCreate,
     IncidentUpdateResponse,
     PostmortemCreate,
     PostmortemResponse,
-    IncidentStatsResponse,
 )
 from app.incidents.service import calculate_mttr
 
@@ -73,9 +74,7 @@ async def get_stats(
     user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    base = select(func.count()).select_from(Incident).where(
-        Incident.tenant_id == user.tenant_id
-    )
+    base = select(func.count()).select_from(Incident).where(Incident.tenant_id == user.tenant_id)
     total = (await db.execute(base)).scalar() or 0
     open_count = (await db.execute(base.where(Incident.status == "open"))).scalar() or 0
     investigating = (await db.execute(base.where(Incident.status == "investigating"))).scalar() or 0
@@ -197,9 +196,9 @@ async def add_update(
     if data.new_status:
         incident.status = data.new_status
         if data.new_status == "resolved":
-            incident.resolved_at = datetime.now(timezone.utc)
+            incident.resolved_at = datetime.now(UTC)
         elif data.new_status == "closed":
-            incident.closed_at = datetime.now(timezone.utc)
+            incident.closed_at = datetime.now(UTC)
 
     await db.commit()
     await db.refresh(update)
@@ -249,7 +248,7 @@ async def resolve_incident(
         raise HTTPException(status_code=400, detail="Incident already resolved")
 
     incident.status = "resolved"
-    incident.resolved_at = datetime.now(timezone.utc)
+    incident.resolved_at = datetime.now(UTC)
 
     update = IncidentUpdateModel(
         incident_id=incident.id,
@@ -266,15 +265,14 @@ async def resolve_incident(
 
 # --- Postmortem ---
 
+
 @router.get("/{incident_id}/postmortem", response_model=PostmortemResponse)
 async def get_postmortem(
     incident_id: uuid.UUID,
     user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Postmortem).where(Postmortem.incident_id == incident_id)
-    )
+    result = await db.execute(select(Postmortem).where(Postmortem.incident_id == incident_id))
     postmortem = result.scalar_one_or_none()
     if not postmortem:
         raise HTTPException(status_code=404, detail="Postmortem not found")
@@ -300,9 +298,7 @@ async def create_postmortem(
         raise HTTPException(status_code=404, detail="Incident not found")
 
     # Check no existing postmortem
-    result = await db.execute(
-        select(Postmortem).where(Postmortem.incident_id == incident_id)
-    )
+    result = await db.execute(select(Postmortem).where(Postmortem.incident_id == incident_id))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Postmortem already exists")
 
@@ -330,9 +326,7 @@ async def update_postmortem(
     user=Depends(require_role("admin", "operator")),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Postmortem).where(Postmortem.incident_id == incident_id)
-    )
+    result = await db.execute(select(Postmortem).where(Postmortem.incident_id == incident_id))
     postmortem = result.scalar_one_or_none()
     if not postmortem:
         raise HTTPException(status_code=404, detail="Postmortem not found")
