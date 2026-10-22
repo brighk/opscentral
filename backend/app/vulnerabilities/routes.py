@@ -85,7 +85,7 @@ async def vulnerability_summary(
         .group_by(Vulnerability.severity)
     )
 
-    severity_counts: dict[str, int] = {severity: n for severity, n in counts.tuples()}
+    severity_counts: dict[str, int] = {severity: n for severity, n in counts}
 
     total = sum(severity_counts.values())
     return {
