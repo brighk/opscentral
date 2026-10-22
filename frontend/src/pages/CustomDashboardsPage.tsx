@@ -5,7 +5,7 @@ import {
 } from '@mantine/core';
 import {
   IconLayoutDashboard, IconPlus, IconTrash, IconStar, IconStarFilled,
-  IconDotsVertical, IconEdit, IconEye,
+  IconDotsVertical, IconEye,
 } from '@tabler/icons-react';
 import { useDisclosure } from '@mantine/hooks';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

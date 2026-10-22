@@ -4,7 +4,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { processesApi } from '../api/processes';
 import { useState } from 'react';
-import api from '../api/client';
+import { agentsApi, type Agent } from '../api/agents';
 
 interface AgentOption {
   value: string;
@@ -24,8 +24,8 @@ export default function ProcessesPage() {
 
   const { data: agents } = useQuery({
     queryKey: ['agents'],
-    queryFn: () => api.get('/api/v1/agents').then(r => r.data as AgentOption[]),
-    select: (data: any[]) => data.map((a: any) => ({
+    queryFn: () => agentsApi.list().then(r => r.data.items),
+    select: (data: Agent[]): AgentOption[] => data.map(a => ({
       value: a.id,
       label: a.display_name || a.hostname,
     })),

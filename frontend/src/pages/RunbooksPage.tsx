@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Stack, Title, Group, Button, Table, Badge, Modal, TextInput,
-  Textarea, Select, Switch, Paper, Text, ActionIcon, Tabs, JsonInput,
-  Code, Accordion, Loader,
+  Textarea, Select, Switch, Paper, Text, ActionIcon, JsonInput,
+  Loader,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconPlus, IconTrash, IconPlayerPlay, IconCheck, IconX } from '@tabler/icons-react';
-import { runbooksApi, Runbook, RunbookStep, RunbookExecution, RunbookStepExecution } from '../api/runbooks';
+import { runbooksApi, type Runbook, type RunbookStep } from '../api/runbooks';
 
 export default function RunbooksPage() {
   const queryClient = useQueryClient();

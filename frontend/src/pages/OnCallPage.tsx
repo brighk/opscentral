@@ -2,16 +2,15 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Stack, Title, Group, Button, Table, Badge, Modal, TextInput,
-  Textarea, Select, Paper, Text, Tabs, NumberInput, JsonInput,
-  Card, ActionIcon, Loader, Alert,
+  Textarea, Select, Paper, Tabs, JsonInput,
+  ActionIcon, Loader, Alert,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconPlus, IconTrash, IconPhoneCall } from '@tabler/icons-react';
-import { oncallApi, OnCallSchedule, EscalationPolicy } from '../api/oncall';
+import { oncallApi } from '../api/oncall';
 
 export default function OnCallPage() {
-  const queryClient = useQueryClient();
 
   // Whoami
   const { data: whoami } = useQuery({

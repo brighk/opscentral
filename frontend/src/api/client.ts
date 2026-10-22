@@ -41,4 +41,12 @@ api.interceptors.response.use(
   },
 );
 
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}
+
 export default api;

@@ -11,7 +11,6 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { reportsApi } from '../api/reports';
-import type { ComplianceScore } from '../api/reports';
 
 const REPORT_TYPES = [
   { value: 'security_posture', label: 'Security Posture' },

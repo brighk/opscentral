@@ -21,7 +21,7 @@ export default function MonitoringPage() {
 
   const { data: agents } = useQuery({
     queryKey: ['agents'],
-    queryFn: () => agentsApi.list().then(r => r.data),
+    queryFn: () => agentsApi.list().then(r => r.data.items),
   });
 
   const { data: metrics, isLoading } = useQuery({

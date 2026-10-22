@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   Stack, Title, Paper, Text, Group, Badge, Button, Table, Tabs,
   Modal, TextInput, MultiSelect, JsonInput, Center, Loader, ActionIcon,
-  Card, SimpleGrid, Drawer, Code, Switch,
+  Card, SimpleGrid, Drawer,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {

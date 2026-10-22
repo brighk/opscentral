@@ -8,6 +8,7 @@ export interface Subscription {
   asset_count: number;
   current_period_start: string | null;
   current_period_end: string | null;
+  has_billing_portal: boolean;
   created_at: string;
 }
 
