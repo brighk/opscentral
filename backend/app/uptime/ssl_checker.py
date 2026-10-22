@@ -21,6 +21,7 @@ def check_ssl_cert(url: str, timeout: int = 10) -> dict | None:
 
     try:
         ctx = ssl.create_default_context()
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         with (
             socket.create_connection((hostname, port), timeout=timeout) as sock,
             ctx.wrap_socket(sock, server_hostname=hostname) as ssock,
