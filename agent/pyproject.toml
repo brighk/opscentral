@@ -31,7 +31,7 @@ build-backend = "setuptools.build_meta"
 extend = "../ruff.toml"
 
 [tool.pyright]
-include = ["opscentral_agent"]
+include = ["opscentral_agent", "tests"]
 pythonVersion = "3.10"
 typeCheckingMode = "standard"
 venvPath = "."

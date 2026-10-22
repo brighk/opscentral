@@ -9,13 +9,14 @@ logger = logging.getLogger(__name__)
 
 
 class AgentClient:
-    def __init__(self):
+    def __init__(self, transport: httpx.BaseTransport | None = None):
         self.base_url = config.server_url.rstrip("/")
         self.api_key = config.api_key
         self._client = httpx.Client(
             base_url=self.base_url,
             headers={"X-Agent-Key": self.api_key},
             timeout=30.0,
+            transport=transport,
         )
 
     def send_heartbeat(self, agent_version: str, ip_address: str | None = None):

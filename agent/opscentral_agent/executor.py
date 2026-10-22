@@ -1,9 +1,14 @@
 import logging
 import platform
+import re
 import subprocess
 import sys
 
 logger = logging.getLogger(__name__)
+
+# systemd unit / Windows service names. Must not start with "-" (would be read as
+# an option) and must not contain quotes or shell metacharacters.
+_SERVICE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.@:-]*")
 
 
 class ActionExecutor:
@@ -26,9 +31,18 @@ class ActionExecutor:
         service_name = params.get("service_name")
         if not service_name:
             raise ValueError("service_name is required")
+        if not isinstance(service_name, str) or not _SERVICE_NAME.fullmatch(service_name):
+            raise ValueError(f"Invalid service name: {service_name!r}")
 
         if platform.system() == "Windows":
-            cmd = ["sc", "restart", service_name]
+            # `sc` has no restart command; the name is validated above, so quoting is safe
+            cmd = [
+                "powershell",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                f"Restart-Service -Name '{service_name}' -ErrorAction Stop",
+            ]
         else:
             cmd = ["sudo", "systemctl", "restart", service_name]
 
