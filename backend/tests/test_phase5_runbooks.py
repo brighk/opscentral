@@ -1,4 +1,7 @@
+import pytest
 from httpx import AsyncClient
+
+pytestmark = pytest.mark.usefixtures("inline_runbooks")
 
 
 async def _register_and_login(client: AsyncClient, email: str = "admin@test.com"):
@@ -38,9 +41,19 @@ async def _create_operator(client: AsyncClient, admin_headers: dict):
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _setup_agent(client: AsyncClient, headers: dict) -> str:
+    resp = await client.post(
+        "/api/v1/agents/register",
+        json={"hostname": "web-1", "os_type": "linux"},
+        headers=headers,
+    )
+    return resp.json()["agent_id"]
+
+
 class TestRunbooks:
     async def test_create_runbook(self, client: AsyncClient):
         headers = await _register_and_login(client)
+        agent_id = await _setup_agent(client, headers)
         resp = await client.post(
             "/api/v1/runbooks",
             json={
@@ -48,15 +61,19 @@ class TestRunbooks:
                 "description": "Restart nginx on target server",
                 "steps": [
                     {
-                        "name": "Stop Service",
+                        "name": "Restart Service",
                         "action_type": "remote_action",
-                        "parameters": {"service": "nginx"},
+                        "parameters": {
+                            "agent_id": agent_id,
+                            "action": "restart_service",
+                            "parameters": {"service_name": "nginx"},
+                        },
                         "on_failure": "stop",
                     },
                     {
-                        "name": "Start Service",
-                        "action_type": "remote_action",
-                        "parameters": {"service": "nginx"},
+                        "name": "Wait",
+                        "action_type": "delay",
+                        "parameters": {"seconds": 5},
                         "on_failure": "stop",
                     },
                 ],
@@ -68,6 +85,8 @@ class TestRunbooks:
         data = resp.json()
         assert data["name"] == "Restart Service"
         assert len(data["steps"]) == 2
+        # Parameters are stored normalized, with defaults filled in
+        assert data["steps"][0]["parameters"]["timeout_seconds"] == 300
 
     async def test_list_runbooks(self, client: AsyncClient):
         headers = await _register_and_login(client)
@@ -140,8 +159,8 @@ class TestRunbooks:
                 "steps": [
                     {
                         "name": "Step 1",
-                        "action_type": "remote_action",
-                        "parameters": {},
+                        "action_type": "delay",
+                        "parameters": {"seconds": 0},
                         "on_failure": "continue",
                     },
                 ],

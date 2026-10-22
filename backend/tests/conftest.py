@@ -55,10 +55,42 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     async def override_get_db():
-        yield db_session
+        # Commit per request like app.db.session.get_db
+        try:
+            yield db_session
+            await db_session.commit()
+        except Exception:
+            await db_session.rollback()
+            raise
 
     app.dependency_overrides[get_db] = override_get_db
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def inline_runbooks(db_session: AsyncSession, monkeypatch):
+    """Run runbook executions inline (no Celery), with instant polling."""
+    from app.runbooks import dispatch
+    from app.runbooks.engine import RunbookEngine
+
+    async def run_inline(execution_id):
+        await RunbookEngine(db_session, poll_interval=0).execute_runbook(execution_id)
+
+    monkeypatch.setattr(dispatch, "dispatch_execution", run_inline)
+
+
+@pytest_asyncio.fixture
+async def queued_runbooks(monkeypatch) -> list:
+    """Record dispatched execution ids instead of running them."""
+    from app.runbooks import dispatch
+
+    queued: list = []
+
+    async def record(execution_id):
+        queued.append(execution_id)
+
+    monkeypatch.setattr(dispatch, "dispatch_execution", record)
+    return queued

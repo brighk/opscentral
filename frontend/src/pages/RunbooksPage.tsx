@@ -9,6 +9,38 @@ import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconPlus, IconTrash, IconPlayerPlay, IconCheck, IconX } from '@tabler/icons-react';
 import { runbooksApi, type Runbook, type RunbookStep } from '../api/runbooks';
+import { apiErrorMessage } from '../api/client';
+
+const DEFAULT_STEPS = JSON.stringify(
+  [
+    {
+      name: 'Restart nginx',
+      action_type: 'remote_action',
+      parameters: { agent_id: '<agent id>', action: 'restart_service', parameters: { service_name: 'nginx' } },
+      on_failure: 'stop',
+    },
+    { name: 'Wait for startup', action_type: 'delay', parameters: { seconds: 10 }, on_failure: 'stop' },
+    {
+      name: 'Check health endpoint',
+      action_type: 'webhook',
+      parameters: { url: 'https://example.com/health', method: 'GET' },
+      on_failure: 'stop',
+    },
+    {
+      name: 'Health returned 200',
+      action_type: 'condition',
+      parameters: { step: 2, path: 'status_code', operator: 'eq', value: 200 },
+      on_failure: 'stop',
+    },
+  ],
+  null,
+  2,
+);
+
+const STEPS_HELP =
+  'Step types: remote_action (agent_id, action, parameters, timeout_seconds), ' +
+  'webhook (url, method, headers, body), delay (seconds), ' +
+  'condition (step, path, operator, value). on_failure: stop or continue.';
 
 export default function RunbooksPage() {
   const queryClient = useQueryClient();
@@ -21,7 +53,7 @@ export default function RunbooksPage() {
   const [description, setDescription] = useState('');
   const [triggerType, setTriggerType] = useState('manual');
   const [requiresApproval, setRequiresApproval] = useState(false);
-  const [stepsJson, setStepsJson] = useState('[\n  {\n    "name": "Step 1",\n    "action_type": "remote_action",\n    "parameters": {},\n    "on_failure": "stop"\n  }\n]');
+  const [stepsJson, setStepsJson] = useState(DEFAULT_STEPS);
 
   const { data: runbooks, isLoading } = useQuery({
     queryKey: ['runbooks'],
@@ -44,7 +76,7 @@ export default function RunbooksPage() {
       resetForm();
       notifications.show({ title: 'Success', message: 'Runbook created', color: 'green' });
     },
-    onError: () => notifications.show({ title: 'Error', message: 'Failed to create runbook', color: 'red' }),
+    onError: (err) => notifications.show({ title: 'Error', message: apiErrorMessage(err, 'Failed to create runbook'), color: 'red' }),
   });
 
   const deleteMutation = useMutation({
@@ -59,9 +91,9 @@ export default function RunbooksPage() {
     mutationFn: (id: string) => runbooksApi.execute(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['runbook-executions'] });
-      notifications.show({ title: 'Executed', message: 'Runbook execution started', color: 'blue' });
+      notifications.show({ title: 'Queued', message: 'Runbook execution queued', color: 'blue' });
     },
-    onError: () => notifications.show({ title: 'Error', message: 'Failed to execute runbook', color: 'red' }),
+    onError: (err) => notifications.show({ title: 'Error', message: apiErrorMessage(err, 'Failed to execute runbook'), color: 'red' }),
   });
 
   const approveMutation = useMutation({
@@ -85,7 +117,7 @@ export default function RunbooksPage() {
     setDescription('');
     setTriggerType('manual');
     setRequiresApproval(false);
-    setStepsJson('[\n  {\n    "name": "Step 1",\n    "action_type": "remote_action",\n    "parameters": {},\n    "on_failure": "stop"\n  }\n]');
+    setStepsJson(DEFAULT_STEPS);
   };
 
   const handleCreate = () => {
@@ -176,6 +208,7 @@ export default function RunbooksPage() {
           <Switch label="Requires Approval" checked={requiresApproval} onChange={e => setRequiresApproval(e.currentTarget.checked)} />
           <JsonInput
             label="Steps (JSON)"
+            description={STEPS_HELP}
             value={stepsJson}
             onChange={setStepsJson}
             minRows={6}

@@ -5,9 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.models import Agent
+from app.auth.models import User
 from app.db.session import get_db
 from app.dependencies import get_current_user, require_role
-from app.runbooks.engine import RunbookEngine
+from app.remote_actions.models import PREDEFINED_ACTIONS
+from app.runbooks import dispatch
 from app.runbooks.models import Runbook, RunbookExecution, RunbookStepExecution
 from app.runbooks.schemas import (
     RunbookCreate,
@@ -15,10 +18,57 @@ from app.runbooks.schemas import (
     RunbookExecutionResponse,
     RunbookResponse,
     RunbookStepExecutionResponse,
+    RunbookStepSchema,
     RunbookUpdate,
 )
 
 router = APIRouter(prefix="/api/v1/runbooks", tags=["runbooks"])
+
+
+def _admin_only_actions(steps: list[dict]) -> list[str]:
+    """Remote actions in these steps that only admins may trigger (e.g. custom_script)."""
+    return [
+        step["parameters"]["action"]
+        for step in steps
+        if step.get("action_type") == "remote_action"
+        and PREDEFINED_ACTIONS.get(step.get("parameters", {}).get("action", ""), {}).get("min_role")
+        == "admin"
+    ]
+
+
+async def _validate_steps(steps: list[RunbookStepSchema], user: User, db: AsyncSession) -> None:
+    step_dicts = [s.model_dump() for s in steps]
+    admin_only = _admin_only_actions(step_dicts)
+    if admin_only and user.role != "admin":
+        actions = ", ".join(sorted(set(admin_only)))
+        raise HTTPException(
+            status_code=403, detail=f"Only admins can add these remote actions: {actions}"
+        )
+
+    agent_ids = {
+        uuid.UUID(s.parameters["agent_id"]) for s in steps if s.action_type == "remote_action"
+    }
+    if agent_ids:
+        result = await db.execute(
+            select(Agent.id).where(Agent.id.in_(agent_ids), Agent.tenant_id == user.tenant_id)
+        )
+        missing = agent_ids - set(result.scalars().all())
+        if missing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown agent(s): {', '.join(str(a) for a in sorted(missing, key=str))}",
+            )
+
+
+async def _queue(execution: RunbookExecution, db: AsyncSession) -> None:
+    try:
+        await dispatch.dispatch_execution(execution.id)
+    except dispatch.QueueUnavailableError:
+        execution.status = "failed"
+        execution.error = "Could not queue the execution: background worker queue is unavailable"
+        execution.completed_at = datetime.now(UTC)
+        await db.commit()
+    await db.refresh(execution)
 
 
 @router.get("", response_model=list[RunbookResponse])
@@ -40,6 +90,7 @@ async def create_runbook(
     user=Depends(require_role("admin", "operator")),
     db: AsyncSession = Depends(get_db),
 ):
+    await _validate_steps(data.steps, user, db)
     runbook = Runbook(
         tenant_id=user.tenant_id,
         name=data.name,
@@ -95,7 +146,12 @@ async def update_runbook(
     if data.description is not None:
         runbook.description = data.description
     if data.steps is not None:
+        await _validate_steps(data.steps, user, db)
         runbook.steps = [s.model_dump() for s in data.steps]
+    elif _admin_only_actions(runbook.steps) and user.role != "admin":
+        raise HTTPException(
+            status_code=403, detail="Only admins can edit runbooks with admin-only remote actions"
+        )
     if data.trigger_type is not None:
         runbook.trigger_type = data.trigger_type
     if data.requires_approval is not None:
@@ -148,22 +204,22 @@ async def execute_runbook(
     if not runbook.is_enabled:
         raise HTTPException(status_code=400, detail="Runbook is disabled")
 
-    initial_status = "pending_approval" if runbook.requires_approval else "approved"
+    # Operators may run runbooks containing admin-only actions, but an admin must approve
+    needs_approval = runbook.requires_approval or (
+        user.role != "admin" and bool(_admin_only_actions(runbook.steps))
+    )
     execution = RunbookExecution(
         runbook_id=runbook.id,
         tenant_id=user.tenant_id,
-        status=initial_status,
+        status="pending_approval" if needs_approval else "approved",
         triggered_by=user.id,
     )
     db.add(execution)
     await db.commit()
     await db.refresh(execution)
 
-    if not runbook.requires_approval:
-        engine = RunbookEngine(db)
-        await engine.execute_runbook(execution.id)
-        await db.refresh(execution)
-
+    if not needs_approval:
+        await _queue(execution, db)
     return execution
 
 
@@ -231,9 +287,7 @@ async def approve_execution(
     execution.approved_by = user.id
     await db.commit()
 
-    engine = RunbookEngine(db)
-    await engine.execute_runbook(execution.id)
-    await db.refresh(execution)
+    await _queue(execution, db)
     return execution
 
 
@@ -252,7 +306,8 @@ async def cancel_execution(
     execution = result.scalar_one_or_none()
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
-    if execution.status not in ("pending_approval", "approved"):
+    # A running execution stops before its next step (or while waiting on an agent)
+    if execution.status not in ("pending_approval", "approved", "running"):
         raise HTTPException(status_code=400, detail="Cannot cancel this execution")
 
     execution.status = "cancelled"
