@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
@@ -62,7 +62,7 @@ async def create_action(
         action_type=body.action_type,
         parameters=body.parameters,
         status="pending",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        expires_at=datetime.now(UTC) + timedelta(minutes=30),
     )
     db.add(action)
     await db.flush()
@@ -124,5 +124,5 @@ async def cancel_action(
         raise BadRequestError(f"Cannot cancel action in '{action.status}' status")
     action.status = "failed"
     action.error = "Cancelled by user"
-    action.completed_at = datetime.now(timezone.utc)
+    action.completed_at = datetime.now(UTC)
     return {"status": "cancelled"}

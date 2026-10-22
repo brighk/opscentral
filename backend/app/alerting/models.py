@@ -1,18 +1,16 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Boolean, Text, Uuid
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, UUIDMixin, TimestampMixin
+from app.db.base import Base, TimestampMixin, UUIDMixin
 
 
 class AlertRule(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "alert_rules"
 
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, nullable=False, index=True
-    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     metric_name: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -30,14 +28,14 @@ class AlertRule(Base, UUIDMixin, TimestampMixin):
 class Alert(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "alerts"
 
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, nullable=False, index=True
-    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
     rule_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("alert_rules.id"), nullable=True
     )
     agent_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="firing")  # firing, acknowledged, resolved
+    status: Mapped[str] = mapped_column(
+        String(20), default="firing"
+    )  # firing, acknowledged, resolved
     severity: Mapped[str] = mapped_column(String(20), default="warning")
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     message: Mapped[str | None] = mapped_column(Text)

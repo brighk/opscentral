@@ -1,17 +1,18 @@
 import json
 import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.dependencies import get_current_user, require_role
-from app.integrations.dispatcher import compute_signature, dispatch_webhook
+from app.integrations.dispatcher import dispatch_webhook
 from app.integrations.event_types import EVENT_TYPES
 from app.integrations.models import ExternalIntegration, WebhookDelivery, WebhookEndpoint
+from app.integrations.providers import PROVIDERS
 from app.integrations.schemas import (
     EventTypeResponse,
     ExternalIntegrationCreate,
@@ -167,7 +168,7 @@ async def test_webhook(
     test_payload = {
         "event": "test",
         "message": "This is a test webhook from OpsCentral",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
     count = await dispatch_webhook(db, str(user.tenant_id), "test", test_payload)
     return {"detail": "Test webhook sent", "deliveries": count}
@@ -195,7 +196,7 @@ async def create_integration(
     user=Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ):
-    valid_providers = ["pagerduty", "jira", "opsgenie", "servicenow"]
+    valid_providers = list(PROVIDERS)
     if data.provider not in valid_providers:
         raise HTTPException(status_code=400, detail=f"Provider must be one of: {valid_providers}")
 
@@ -277,13 +278,19 @@ async def test_integration(
     if not integration:
         raise HTTPException(status_code=404, detail="Integration not found")
 
-    # For now, just verify config is valid JSON
     try:
         config = json.loads(integration.config)
     except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid integration configuration")
+        raise HTTPException(status_code=400, detail="Invalid integration configuration") from None
 
-    return {"detail": f"Connection test for {integration.provider} successful", "provider": integration.provider}
+    provider_cls = PROVIDERS.get(integration.provider)
+    if not provider_cls:
+        raise HTTPException(status_code=400, detail=f"Unknown provider: {integration.provider}")
+
+    result = await provider_cls(config).test_connection()
+    if not result.ok:
+        raise HTTPException(status_code=400, detail=result.detail)
+    return {"detail": result.detail, "provider": integration.provider}
 
 
 # --- Helpers ---

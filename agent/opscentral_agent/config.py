@@ -37,9 +37,7 @@ class AgentConfig:
             self.collect_interval = data.get("collect_interval", self.collect_interval)
             self.inventory_interval = data.get("inventory_interval", self.inventory_interval)
             self.log_level = data.get("log_level", self.log_level)
-            self.action_poll_interval = data.get(
-                "action_poll_interval", self.action_poll_interval
-            )
+            self.action_poll_interval = data.get("action_poll_interval", self.action_poll_interval)
             self.enable_remote_actions = data.get(
                 "enable_remote_actions", self.enable_remote_actions
             )

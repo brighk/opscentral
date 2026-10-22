@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.alerting.models import Alert, AlertRule
@@ -22,6 +22,7 @@ router = APIRouter(prefix="/api/v1/alerting", tags=["alerting"])
 
 
 # --- Alert Rules CRUD ---
+
 
 @router.get("/rules", response_model=list[AlertRuleResponse])
 async def list_rules(
@@ -97,6 +98,7 @@ async def delete_rule(
 
 # --- Alerts ---
 
+
 @router.get("/alerts", response_model=PaginatedResponse[AlertResponse])
 async def list_alerts(
     status: str | None = Query(None),
@@ -112,9 +114,7 @@ async def list_alerts(
     total = total_result.scalar() or 0
 
     result = await db.execute(
-        base.order_by(Alert.fired_at.desc())
-        .offset(pagination.offset)
-        .limit(pagination.page_size)
+        base.order_by(Alert.fired_at.desc()).offset(pagination.offset).limit(pagination.page_size)
     )
     items = result.scalars().all()
     return PaginatedResponse(
@@ -139,7 +139,7 @@ async def acknowledge_alert(
     if not alert:
         raise NotFoundError("Alert not found")
     alert.status = "acknowledged"
-    alert.acknowledged_at = datetime.now(timezone.utc)
+    alert.acknowledged_at = datetime.now(UTC)
     alert.acknowledged_by = user.id
     return {"status": "acknowledged"}
 
@@ -157,5 +157,5 @@ async def resolve_alert(
     if not alert:
         raise NotFoundError("Alert not found")
     alert.status = "resolved"
-    alert.resolved_at = datetime.now(timezone.utc)
+    alert.resolved_at = datetime.now(UTC)
     return {"status": "resolved"}

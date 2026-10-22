@@ -1,25 +1,38 @@
 """Tests for Phase 3 features: vulnerabilities, RBAC, dashboards, uptime."""
 
+import uuid
+from datetime import UTC, datetime
+
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.vulnerabilities.models import Vulnerability
 
 
 async def _register_and_login(client: AsyncClient) -> str:
     """Helper: register user and return access token."""
-    await client.post("/api/v1/auth/register", json={
-        "email": "phase3@example.com",
-        "password": "testpassword123",
-        "full_name": "Phase3 User",
-        "company_name": "Phase3 Corp",
-    })
-    response = await client.post("/api/v1/auth/login", json={
-        "email": "phase3@example.com",
-        "password": "testpassword123",
-    })
+    await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "phase3@example.com",
+            "password": "testpassword123",
+            "full_name": "Phase3 User",
+            "company_name": "Phase3 Corp",
+        },
+    )
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "phase3@example.com",
+            "password": "testpassword123",
+        },
+    )
     return response.json()["access_token"]
 
 
 # --- Vulnerability Scanning Tests ---
+
 
 @pytest.mark.asyncio
 async def test_list_vulnerabilities_empty(client: AsyncClient):
@@ -49,6 +62,34 @@ async def test_vulnerability_summary(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_vulnerability_summary_counts(client: AsyncClient, db_session: AsyncSession):
+    token = await _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    me = await client.get("/api/v1/auth/me", headers=headers)
+    tenant_id = uuid.UUID(me.json()["tenant_id"])
+
+    for i, severity in enumerate(["critical", "high", "high"]):
+        db_session.add(
+            Vulnerability(
+                tenant_id=tenant_id,
+                asset_id=uuid.uuid4(),
+                software_name="openssl",
+                cve_id=f"CVE-2026-000{i}",
+                severity=severity,
+                first_detected_at=datetime.now(UTC),
+            )
+        )
+    await db_session.commit()
+
+    response = await client.get("/api/v1/vulnerabilities/summary", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["critical"] == 1
+    assert data["high"] == 2
+    assert data["total"] == 3
+
+
+@pytest.mark.asyncio
 async def test_vulnerability_scans_empty(client: AsyncClient):
     token = await _register_and_login(client)
     response = await client.get(
@@ -60,6 +101,7 @@ async def test_vulnerability_scans_empty(client: AsyncClient):
 
 
 # --- User & Access Management Tests ---
+
 
 @pytest.mark.asyncio
 async def test_list_users(client: AsyncClient):
@@ -100,7 +142,12 @@ async def test_audit_log(client: AsyncClient):
     # Invite a user to generate an audit entry
     await client.post(
         "/api/v1/auth/users/invite",
-        json={"email": "audit@example.com", "full_name": "Audit User", "role": "viewer", "password": "temppass123"},
+        json={
+            "email": "audit@example.com",
+            "full_name": "Audit User",
+            "role": "viewer",
+            "password": "temppass123",
+        },
         headers={"Authorization": f"Bearer {token}"},
     )
     response = await client.get(
@@ -115,6 +162,7 @@ async def test_audit_log(client: AsyncClient):
 
 
 # --- Dashboard Customization Tests ---
+
 
 @pytest.mark.asyncio
 async def test_create_dashboard(client: AsyncClient):
@@ -229,6 +277,7 @@ async def test_delete_dashboard(client: AsyncClient):
 
 
 # --- Uptime Monitoring Tests ---
+
 
 @pytest.mark.asyncio
 async def test_uptime_stats_empty(client: AsyncClient):

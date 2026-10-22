@@ -1,7 +1,6 @@
 """Process collector — top processes by CPU and memory usage."""
 
 import logging
-import platform
 
 import psutil
 
@@ -18,9 +17,16 @@ def collect_processes(top_n: int = 20) -> list[dict]:
     try:
         # Get all process info in one shot for efficiency
         attrs = [
-            "pid", "name", "cpu_percent", "memory_percent",
-            "memory_info", "status", "username", "create_time",
-            "cmdline", "num_threads",
+            "pid",
+            "name",
+            "cpu_percent",
+            "memory_percent",
+            "memory_info",
+            "status",
+            "username",
+            "create_time",
+            "cmdline",
+            "num_threads",
         ]
         for proc in psutil.process_iter(attrs=attrs):
             try:
@@ -32,18 +38,20 @@ def collect_processes(top_n: int = 20) -> list[dict]:
                 cmdline = info.get("cmdline") or []
                 command = " ".join(cmdline[:5]) if cmdline else info.get("name", "")
 
-                processes.append({
-                    "pid": info["pid"],
-                    "name": info.get("name", "unknown"),
-                    "cpu_percent": round(info.get("cpu_percent", 0) or 0, 1),
-                    "memory_percent": round(info.get("memory_percent", 0) or 0, 1),
-                    "memory_mb": memory_mb,
-                    "status": info.get("status", "unknown"),
-                    "username": info.get("username"),
-                    "num_threads": info.get("num_threads", 0),
-                    "command": command[:200],  # Truncate long commands
-                    "create_time": info.get("create_time"),
-                })
+                processes.append(
+                    {
+                        "pid": info["pid"],
+                        "name": info.get("name", "unknown"),
+                        "cpu_percent": round(info.get("cpu_percent", 0) or 0, 1),
+                        "memory_percent": round(info.get("memory_percent", 0) or 0, 1),
+                        "memory_mb": memory_mb,
+                        "status": info.get("status", "unknown"),
+                        "username": info.get("username"),
+                        "num_threads": info.get("num_threads", 0),
+                        "command": command[:200],  # Truncate long commands
+                        "create_time": info.get("create_time"),
+                    }
+                )
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue
 
@@ -74,12 +82,14 @@ def collect_process_summary() -> list[dict]:
                 continue
 
         for status, count in status_counts.items():
-            metrics.append({
-                "name": "process_count_by_status",
-                "value": count,
-                "unit": "count",
-                "tags": {"status": status},
-            })
+            metrics.append(
+                {
+                    "name": "process_count_by_status",
+                    "value": count,
+                    "unit": "count",
+                    "tags": {"status": status},
+                }
+            )
     except Exception as e:
         logger.error(f"Error collecting process summary: {e}")
 

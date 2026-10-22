@@ -1,15 +1,17 @@
-import pytest
 from httpx import AsyncClient
 
 
 async def _register_and_login(client: AsyncClient, role: str = "admin"):
     """Helper to register and return auth headers."""
-    reg = await client.post("/api/v1/auth/register", json={
-        "email": f"{role}@test.com",
-        "password": "testpass123",
-        "full_name": "Test User",
-        "company_name": "Test Corp",
-    })
+    reg = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": f"{role}@test.com",
+            "password": "testpass123",
+            "full_name": "Test User",
+            "company_name": "Test Corp",
+        },
+    )
     token = reg.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
@@ -20,10 +22,14 @@ class TestPagination:
 
         # Register some agents
         for i in range(3):
-            await client.post("/api/v1/agents/register", json={
-                "hostname": f"agent-{i}",
-                "os_type": "linux",
-            }, headers=headers)
+            await client.post(
+                "/api/v1/agents/register",
+                json={
+                    "hostname": f"agent-{i}",
+                    "os_type": "linux",
+                },
+                headers=headers,
+            )
 
         # Test paginated list
         resp = await client.get("/api/v1/agents?page=1&page_size=2", headers=headers)
@@ -56,10 +62,14 @@ class TestAPIKeys:
     async def test_create_api_key(self, client: AsyncClient):
         headers = await _register_and_login(client)
 
-        resp = await client.post("/api/v1/api-keys", json={
-            "name": "My API Key",
-            "scopes": ["read"],
-        }, headers=headers)
+        resp = await client.post(
+            "/api/v1/api-keys",
+            json={
+                "name": "My API Key",
+                "scopes": ["read"],
+            },
+            headers=headers,
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "raw_key" in data
@@ -71,9 +81,13 @@ class TestAPIKeys:
         headers = await _register_and_login(client)
 
         # Create a key first
-        await client.post("/api/v1/api-keys", json={
-            "name": "Test Key",
-        }, headers=headers)
+        await client.post(
+            "/api/v1/api-keys",
+            json={
+                "name": "Test Key",
+            },
+            headers=headers,
+        )
 
         resp = await client.get("/api/v1/api-keys", headers=headers)
         assert resp.status_code == 200
@@ -86,9 +100,13 @@ class TestAPIKeys:
         headers = await _register_and_login(client)
 
         # Create
-        create_resp = await client.post("/api/v1/api-keys", json={
-            "name": "To Revoke",
-        }, headers=headers)
+        create_resp = await client.post(
+            "/api/v1/api-keys",
+            json={
+                "name": "To Revoke",
+            },
+            headers=headers,
+        )
         key_id = create_resp.json()["id"]
 
         # Revoke
@@ -115,8 +133,10 @@ class TestSecurityHeaders:
 class TestErrorFormat:
     async def test_error_response_format(self, client: AsyncClient):
         # 404 error
-        resp = await client.get("/api/v1/assets/00000000-0000-0000-0000-000000000000",
-                                headers={"Authorization": "Bearer invalid"})
+        resp = await client.get(
+            "/api/v1/assets/00000000-0000-0000-0000-000000000000",
+            headers={"Authorization": "Bearer invalid"},
+        )
         # Should get 401 or 403
         assert resp.status_code in (401, 403, 422)
         data = resp.json()

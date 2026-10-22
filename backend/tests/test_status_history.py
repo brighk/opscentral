@@ -5,16 +5,22 @@ from httpx import AsyncClient
 
 
 async def _register_and_login(client: AsyncClient) -> str:
-    await client.post("/api/v1/auth/register", json={
-        "email": "test@example.com",
-        "password": "testpassword123",
-        "full_name": "Test User",
-        "company_name": "Test Corp",
-    })
-    response = await client.post("/api/v1/auth/login", json={
-        "email": "test@example.com",
-        "password": "testpassword123",
-    })
+    await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "test@example.com",
+            "password": "testpassword123",
+            "full_name": "Test User",
+            "company_name": "Test Corp",
+        },
+    )
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "test@example.com",
+            "password": "testpassword123",
+        },
+    )
     return response.json()["access_token"]
 
 
@@ -57,7 +63,7 @@ async def test_first_heartbeat_creates_status_log(client: AsyncClient):
 async def test_agent_status_history_endpoint(client: AsyncClient):
     """Status history endpoint returns data in correct format."""
     token = await _register_and_login(client)
-    agent_id, api_key = await _register_agent(client, token)
+    agent_id, _api_key = await _register_agent(client, token)
 
     # No history yet (no heartbeat sent)
     response = await client.get(

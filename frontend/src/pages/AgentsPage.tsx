@@ -31,12 +31,12 @@ export default function AgentsPage() {
   const [historyAgentId, setHistoryAgentId] = useState<string | null>(null);
   const [historyAgentName, setHistoryAgentName] = useState('');
 
-  const { data: agentsData, isLoading } = useQuery({
+  const { data: agentsData, isLoading, dataUpdatedAt } = useQuery({
     queryKey: ['agents'],
-    queryFn: () => agentsApi.list().then(r => r.data),
+    queryFn: () => agentsApi.list().then(r => r.data.items),
     refetchInterval: 15000,
   });
-  const agents = (agentsData as any)?.items ?? agentsData ?? [];
+  const agents = agentsData ?? [];
 
   const deactivateMutation = useMutation({
     mutationFn: agentsApi.deactivate,
@@ -47,7 +47,7 @@ export default function AgentsPage() {
 
   const isOnline = (lastSeen: string | null) => {
     if (!lastSeen) return false;
-    return Date.now() - new Date(lastSeen).getTime() < 180000; // 3 minutes
+    return dataUpdatedAt - new Date(lastSeen).getTime() < 180000; // 3 minutes
   };
 
   const openHistory = (agentId: string, name: string) => {

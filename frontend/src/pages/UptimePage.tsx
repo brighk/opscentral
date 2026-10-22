@@ -256,7 +256,7 @@ export default function UptimePage() {
                   <YAxis unit="ms" fontSize={11} />
                   <RechartsTooltip
                     labelFormatter={(v) => new Date(v as string).toLocaleString()}
-                    formatter={(v: number) => [`${v}ms`, 'Response Time']}
+                    formatter={(v) => [`${v}ms`, 'Response Time']}
                   />
                   <Line
                     type="monotone"

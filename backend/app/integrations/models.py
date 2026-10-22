@@ -17,7 +17,9 @@ class WebhookEndpoint(Base, UUIDMixin, TimestampMixin):
     event_types: Mapped[str] = mapped_column(Text, nullable=False, default="[]")  # JSON list
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     failure_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    last_triggered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_triggered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     last_status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
@@ -41,7 +43,9 @@ class ExternalIntegration(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "external_integrations"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("tenants.id"), nullable=False)
-    provider: Mapped[str] = mapped_column(String(50), nullable=False)  # pagerduty/jira/opsgenie/servicenow
+    provider: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # pagerduty/jira/opsgenie/servicenow
     name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     config: Mapped[str] = mapped_column(Text, nullable=False, default="{}")  # encrypted JSON
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

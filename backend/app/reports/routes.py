@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
@@ -138,9 +139,9 @@ async def get_compliance_history(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff = datetime.now(UTC) - timedelta(days=days)
     result = await db.execute(
         select(ComplianceScore)
         .where(
@@ -153,6 +154,7 @@ async def get_compliance_history(
 
 
 # --- Schedules ---
+
 
 @router.get("/schedules", response_model=list[ReportScheduleResponse])
 async def list_schedules(
@@ -173,14 +175,14 @@ async def create_schedule(
     user: User = Depends(require_role("admin", "operator")),
     db: AsyncSession = Depends(get_db),
 ):
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     if body.frequency not in ("weekly", "monthly"):
         from app.exceptions import BadRequestError
 
         raise BadRequestError("Frequency must be 'weekly' or 'monthly'")
 
-    next_run = datetime.now(timezone.utc) + (
+    next_run = datetime.now(UTC) + (
         timedelta(weeks=1) if body.frequency == "weekly" else timedelta(days=30)
     )
 

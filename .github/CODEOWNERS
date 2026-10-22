@@ -1,0 +1,19 @@
+# Reviewers are requested automatically for matching paths. With "Require review
+# from Code Owners" enabled in the ruleset, these approvals become mandatory.
+# Later entries take precedence over earlier ones.
+
+*                               @brighk
+
+# Security-sensitive: code that executes on customer machines, or decides who may
+# trigger it. Keep an owner on these even as maintainers are added for other areas.
+/agent/                         @brighk
+/install.sh                     @brighk
+/install.ps1                    @brighk
+/backend/app/remote_actions/    @brighk
+/backend/app/runbooks/          @brighk
+/backend/app/auth/              @brighk
+/backend/app/api_keys/          @brighk
+/backend/app/dependencies.py    @brighk
+
+# CI and repo policy
+/.github/                       @brighk

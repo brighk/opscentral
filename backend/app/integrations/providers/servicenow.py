@@ -1,10 +1,13 @@
 import httpx
 
-from app.integrations.providers.base import IntegrationProvider
+from app.integrations.providers.base import ConnectionTestResult, IntegrationProvider
+from app.net import UnsafeURLError, validate_outbound_url_async
 
 
 class ServiceNowProvider(IntegrationProvider):
     """ServiceNow Incident API integration."""
+
+    display_name = "ServiceNow"
 
     @property
     def instance_url(self) -> str:
@@ -40,16 +43,23 @@ class ServiceNowProvider(IntegrationProvider):
         # Resolve requires sys_id, simplified
         return {"detail": "ServiceNow resolve requires sys_id"}
 
-    async def test_connection(self) -> bool:
-        url = f"{self.instance_url}/api/now/table/sys_user?sysparm_limit=1"
+    async def test_connection(self) -> ConnectionTestResult:
+        if not (self.instance_url and self.username and self.password):
+            return ConnectionTestResult(False, "instance_url, username and password are required")
         try:
-            async with httpx.AsyncClient() as client:
+            await validate_outbound_url_async(self.instance_url)
+        except UnsafeURLError as e:
+            return ConnectionTestResult(False, str(e))
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
+                # The incident table is what send_alert writes to, so check access to it
                 resp = await client.get(
-                    url,
+                    f"{self.instance_url}/api/now/table/incident",
+                    params={"sysparm_limit": 1},
                     auth=(self.username, self.password),
                     headers={"Accept": "application/json"},
-                    timeout=10.0,
                 )
-                return resp.status_code == 200
-        except Exception:
-            return False
+        except httpx.HTTPError as e:
+            return ConnectionTestResult(False, f"Could not reach ServiceNow: {e}")
+        return self._result_from_response(resp)

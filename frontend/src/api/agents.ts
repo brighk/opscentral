@@ -1,4 +1,4 @@
-import api from './client';
+import api, { type Paginated } from './client';
 
 export interface Agent {
   id: string;
@@ -26,7 +26,7 @@ export interface AgentStatusLog {
 }
 
 export const agentsApi = {
-  list: () => api.get<Agent[]>('/api/v1/agents'),
+  list: () => api.get<Paginated<Agent>>('/api/v1/agents'),
 
   register: (data: { hostname: string; display_name?: string; os_type?: string; os_version?: string }) =>
     api.post<AgentRegisterResponse>('/api/v1/agents/register', data),

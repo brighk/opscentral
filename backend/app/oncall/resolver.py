@@ -1,10 +1,10 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.oncall.models import OnCallSchedule, OnCallOverride
+from app.oncall.models import OnCallOverride, OnCallSchedule
 
 
 async def get_current_oncall(
@@ -12,7 +12,7 @@ async def get_current_oncall(
     schedule_id: uuid.UUID,
 ) -> tuple[str | None, bool]:
     """Returns (user_id, is_override) for who is currently on call."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Check for active overrides first
     result = await db.execute(
@@ -30,9 +30,7 @@ async def get_current_oncall(
         return str(override.user_id), True
 
     # Fall back to schedule rotation
-    result = await db.execute(
-        select(OnCallSchedule).where(OnCallSchedule.id == schedule_id)
-    )
+    result = await db.execute(select(OnCallSchedule).where(OnCallSchedule.id == schedule_id))
     schedule = result.scalar_one_or_none()
     if not schedule or not schedule.participants:
         return None, False
@@ -43,7 +41,11 @@ async def get_current_oncall(
 
     # Calculate current rotation index based on rotation type
     rotation_type = schedule.rotation_type
-    epoch = schedule.created_at.replace(tzinfo=timezone.utc) if schedule.created_at.tzinfo is None else schedule.created_at
+    epoch = (
+        schedule.created_at.replace(tzinfo=UTC)
+        if schedule.created_at.tzinfo is None
+        else schedule.created_at
+    )
     elapsed = now - epoch
 
     if rotation_type == "daily":

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
@@ -125,7 +125,7 @@ async def get_health_check_logs(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    cutoff = datetime.now(UTC) - timedelta(hours=hours)
     result = await db.execute(
         select(HealthCheckLog)
         .where(

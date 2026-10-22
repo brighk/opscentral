@@ -18,7 +18,7 @@ async def send_alert_email(to_email: str, alert_title: str, alert_message: str, 
         return
 
     try:
-        import emails
+        from emails.message import Message
 
         template = jinja_env.get_template("alert_notification.html")
         html = template.render(
@@ -28,7 +28,7 @@ async def send_alert_email(to_email: str, alert_title: str, alert_message: str, 
             app_name=settings.APP_NAME,
         )
 
-        msg = emails.Message(
+        msg = Message(
             subject=f"[{settings.APP_NAME}] {severity.upper()}: {alert_title}",
             html=html,
             mail_from=(settings.APP_NAME, settings.EMAIL_FROM),

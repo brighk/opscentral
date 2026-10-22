@@ -60,9 +60,7 @@ async def list_api_keys(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(APIKey)
-        .where(APIKey.tenant_id == user.tenant_id)
-        .order_by(APIKey.created_at.desc())
+        select(APIKey).where(APIKey.tenant_id == user.tenant_id).order_by(APIKey.created_at.desc())
     )
     return result.scalars().all()
 

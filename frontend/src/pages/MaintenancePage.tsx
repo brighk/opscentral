@@ -3,13 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Stack, Title, Group, Button, Table, Badge, Modal, TextInput,
   Textarea, Select, Paper, Text, ActionIcon, Alert as MantineAlert,
-  Loader, MultiSelect,
+  Loader,
 } from '@mantine/core';
 import { DateTimePicker } from '@mantine/dates';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconPlus, IconTrash, IconCalendarOff } from '@tabler/icons-react';
-import { maintenanceApi, MaintenanceWindow, MaintenanceWindowCreate } from '../api/maintenance';
+import { maintenanceApi, type MaintenanceWindow, type MaintenanceWindowCreate } from '../api/maintenance';
 
 import '@mantine/dates/styles.css';
 
@@ -36,7 +36,6 @@ export default function MaintenancePage() {
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
   const [scope, setScope] = useState<string>('all');
-  const [scopeIds, setScopeIds] = useState<string[]>([]);
   const [scopeIdsInput, setScopeIdsInput] = useState('');
 
   const { data: windows, isLoading } = useQuery({
@@ -78,7 +77,6 @@ export default function MaintenancePage() {
     setStartTime(null);
     setEndTime(null);
     setScope('all');
-    setScopeIds([]);
     setScopeIdsInput('');
   };
 
@@ -217,14 +215,14 @@ export default function MaintenancePage() {
             required
             placeholder="Pick start date and time"
             value={startTime}
-            onChange={setStartTime}
+            onChange={v => setStartTime(v ? new Date(v) : null)}
           />
           <DateTimePicker
             label="End Time"
             required
             placeholder="Pick end date and time"
             value={endTime}
-            onChange={setEndTime}
+            onChange={v => setEndTime(v ? new Date(v) : null)}
             minDate={startTime ?? undefined}
           />
           <Select

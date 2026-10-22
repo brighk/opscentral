@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Stack, Title, Paper, Text, Group, Badge, Button, Table,
-  Modal, Select, TextInput, JsonInput, Center, Loader, ActionIcon,
+  Modal, Select, JsonInput, Center, Loader, ActionIcon,
   Code,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
@@ -43,9 +43,9 @@ export default function RemoteActionsPage() {
 
   const { data: agentsData } = useQuery({
     queryKey: ['agents'],
-    queryFn: () => agentsApi.list().then(r => r.data),
+    queryFn: () => agentsApi.list().then(r => r.data.items),
   });
-  const agents = agentsData?.items ?? agentsData ?? [];
+  const agents = agentsData ?? [];
 
   const createMutation = useMutation({
     mutationFn: () => {
@@ -148,10 +148,10 @@ export default function RemoteActionsPage() {
           <Select
             label="Agent"
             placeholder="Select agent"
-            data={Array.isArray(agents) ? agents.map((a: any) => ({
+            data={agents.map(a => ({
               value: a.id,
               label: a.display_name || a.hostname,
-            })) : []}
+            }))}
             value={selectedAgent}
             onChange={v => v && setSelectedAgent(v)}
           />

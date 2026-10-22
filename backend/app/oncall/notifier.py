@@ -1,8 +1,8 @@
-import uuid
 import logging
+import uuid
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ async def notify_oncall(
 
         async with async_session() as db:
             from app.auth.models import User
+
             result = await db.execute(select(User).where(User.id == user_id))
             user = result.scalar_one_or_none()
 
@@ -33,10 +34,11 @@ async def notify_oncall(
             severity = "warning" if notification_type == "alert" else "info"
 
             from app.notifications.service import send_alert_email
+
             await send_alert_email(user.email, title, message, severity)
 
-            from app.notifications.models import NotificationChannel
             from app.notifications.dispatchers import dispatch_notification
+            from app.notifications.models import NotificationChannel
 
             channels_result = await db.execute(
                 select(NotificationChannel).where(

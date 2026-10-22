@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, JSON, String, Text, Uuid
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, UUIDMixin, TimestampMixin
+from app.db.base import Base, TimestampMixin, UUIDMixin
 
 
 class MaintenanceWindow(Base, UUIDMixin, TimestampMixin):

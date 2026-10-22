@@ -2,7 +2,7 @@ import {
   Stack, Title, Paper, Text, Group, Badge, Button, Progress,
   SimpleGrid, Card, List, ThemeIcon, Center, Loader,
 } from '@mantine/core';
-import { IconCheck, IconCreditCard, IconExternalLink } from '@tabler/icons-react';
+import { IconCheck, IconExternalLink } from '@tabler/icons-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { billingApi } from '../api/billing';
@@ -63,7 +63,7 @@ export default function BillingPage() {
               </Badge>
             </Group>
           </div>
-          {subscription?.stripe_customer_id && (
+          {subscription?.has_billing_portal && (
             <Button
               variant="light"
               rightSection={<IconExternalLink size={14} />}

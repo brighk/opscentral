@@ -1,4 +1,4 @@
-import api from './client';
+import api, { type Paginated } from './client';
 
 export interface AlertRule {
   id: string;
@@ -50,7 +50,7 @@ export const alertingApi = {
   deleteRule: (id: string) => api.delete(`/api/v1/alerting/rules/${id}`),
 
   listAlerts: (status?: string) =>
-    api.get<Alert[]>('/api/v1/alerting/alerts', { params: status ? { status } : {} }),
+    api.get<Paginated<Alert>>('/api/v1/alerting/alerts', { params: status ? { status } : {} }),
   acknowledgeAlert: (id: string) => api.post(`/api/v1/alerting/alerts/${id}/acknowledge`),
   resolveAlert: (id: string) => api.post(`/api/v1/alerting/alerts/${id}/resolve`),
 };

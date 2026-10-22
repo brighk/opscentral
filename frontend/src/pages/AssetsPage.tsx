@@ -9,7 +9,7 @@ export default function AssetsPage() {
 
   const { data: assets, isLoading } = useQuery({
     queryKey: ['assets'],
-    queryFn: () => assetsApi.list().then(r => r.data),
+    queryFn: () => assetsApi.list().then(r => r.data.items),
     refetchInterval: 30000,
   });
 

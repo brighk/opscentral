@@ -357,6 +357,56 @@ POST /api/v1/alerting/alerts/{alert_id}/resolve
 
 ---
 
+## Runbooks
+
+A runbook is an ordered list of steps. Executions run in a Celery worker, so
+`POST /api/v1/runbooks/{id}/execute` returns immediately with status `approved`
+(queued) or `pending_approval`; poll the execution or its steps for progress.
+
+| Method | Path | Role |
+|---|---|---|
+| GET/POST | `/api/v1/runbooks` | any / admin, operator |
+| GET/PUT/DELETE | `/api/v1/runbooks/{id}` | any / admin, operator |
+| POST | `/api/v1/runbooks/{id}/execute` | admin, operator |
+| GET | `/api/v1/runbooks/{id}/executions` | any |
+| GET | `/api/v1/runbooks/executions/{exec_id}/steps` | any |
+| POST | `/api/v1/runbooks/executions/{exec_id}/approve` | admin |
+| POST | `/api/v1/runbooks/executions/{exec_id}/cancel` | admin, operator |
+
+### Step types
+
+Each step is `{"name", "action_type", "parameters", "on_failure"}`. `on_failure`
+is `stop` (default: fail the execution) or `continue` (record the failure, run the
+next step). Parameters are validated when the runbook is saved.
+
+| `action_type` | Parameters | Result | Fails when |
+|---|---|---|---|
+| `remote_action` | `agent_id`, `action` (a remote action type), `parameters`, `timeout_seconds` (10–1800, default 300) | `{action_id, status, result}` | the agent reports failure, exits non-zero, or doesn't finish in time |
+| `webhook` | `url`, `method` (default `POST`), `headers`, `body` (sent as JSON), `timeout_seconds` (1–30) | `{status_code, body}` | non-2xx response, or the URL targets a non-public address |
+| `delay` | `seconds` (0–3600) | `{seconds}` | — |
+| `condition` | `step` (index of an earlier step), `path` (dot path into its result), `operator` (`eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `contains`), `value` | `{actual, passed}` | the comparison is false |
+
+Example: restart a service, then confirm the site is healthy.
+
+```json
+[
+  {"name": "Restart nginx", "action_type": "remote_action",
+   "parameters": {"agent_id": "…", "action": "restart_service", "parameters": {"service_name": "nginx"}}},
+  {"name": "Wait", "action_type": "delay", "parameters": {"seconds": 10}},
+  {"name": "Health check", "action_type": "webhook",
+   "parameters": {"url": "https://example.com/health", "method": "GET"}},
+  {"name": "Is 200", "action_type": "condition",
+   "parameters": {"step": 2, "path": "status_code", "operator": "eq", "value": 200}}
+]
+```
+
+**Permissions:** only admins can add steps that use admin-only remote actions
+(`custom_script`). When an operator runs such a runbook, the execution waits for
+admin approval. Executions fire the `runbook.started`, `runbook.completed` and
+`runbook.failed` webhook events.
+
+---
+
 ## Dashboard WebSocket
 
 ```

@@ -1,12 +1,11 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.models import Agent
-from app.agents.status_models import AgentStatusLog
 from app.agents.schemas import (
     AgentRegisterRequest,
     AgentRegisterResponse,
@@ -16,6 +15,7 @@ from app.agents.schemas import (
     MetricsPayload,
     ProcessesPayload,
 )
+from app.agents.status_models import AgentStatusLog
 from app.auth.models import User
 from app.db.session import get_db
 from app.dependencies import get_agent_tenant_id, get_current_user
@@ -28,6 +28,7 @@ gateway = APIRouter(prefix="/api/v1/gateway", tags=["agent-gateway"])
 
 # --- User-facing agent management ---
 
+
 @router.get("", response_model=PaginatedResponse[AgentResponse])
 async def list_agents(
     pagination: PaginationParams = Depends(),
@@ -39,9 +40,7 @@ async def list_agents(
     total = total_result.scalar() or 0
 
     result = await db.execute(
-        base.order_by(Agent.created_at.desc())
-        .offset(pagination.offset)
-        .limit(pagination.page_size)
+        base.order_by(Agent.created_at.desc()).offset(pagination.offset).limit(pagination.page_size)
     )
     items = result.scalars().all()
     return PaginatedResponse(
@@ -103,7 +102,7 @@ async def get_agent_status_history(
     if not result.scalar_one_or_none():
         raise NotFoundError("Agent not found")
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff = datetime.now(UTC) - timedelta(days=days)
     result = await db.execute(
         select(AgentStatusLog)
         .where(
@@ -127,6 +126,7 @@ async def get_agent_status_history(
 
 # --- Agent gateway (API-key auth) ---
 
+
 @gateway.post("/heartbeat")
 async def heartbeat(
     body: HeartbeatRequest,
@@ -134,7 +134,7 @@ async def heartbeat(
     db: AsyncSession = Depends(get_db),
 ):
     agent_id, tenant_id = agent_info
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Check if agent was previously offline (no heartbeat for 3+ min)
     result = await db.execute(select(Agent).where(Agent.id == agent_id))
@@ -142,22 +142,29 @@ async def heartbeat(
     if agent and agent.last_seen:
         was_offline = (now - agent.last_seen) > timedelta(minutes=3)
         if was_offline:
-            db.add(AgentStatusLog(
+            db.add(
+                AgentStatusLog(
+                    tenant_id=tenant_id,
+                    agent_id=agent_id,
+                    status="online",
+                    message=(
+                        "Agent came back online after being offline since "
+                        f"{agent.last_seen.isoformat()}"
+                    ),
+                    recorded_at=now,
+                )
+            )
+    elif agent and agent.last_seen is None:
+        # First heartbeat ever — record as initial online
+        db.add(
+            AgentStatusLog(
                 tenant_id=tenant_id,
                 agent_id=agent_id,
                 status="online",
-                message=f"Agent came back online after being offline since {agent.last_seen.isoformat()}",
+                message="Agent connected for the first time",
                 recorded_at=now,
-            ))
-    elif agent and agent.last_seen is None:
-        # First heartbeat ever — record as initial online
-        db.add(AgentStatusLog(
-            tenant_id=tenant_id,
-            agent_id=agent_id,
-            status="online",
-            message="Agent connected for the first time",
-            recorded_at=now,
-        ))
+            )
+        )
 
     await db.execute(
         update(Agent)
@@ -180,7 +187,7 @@ async def ingest_metrics(
     from app.monitoring.models import Metric
 
     agent_id, tenant_id = agent_info
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     for m in body.metrics:
         metric = Metric(
@@ -195,15 +202,15 @@ async def ingest_metrics(
         db.add(metric)
 
     # Update last_seen
-    await db.execute(
-        update(Agent).where(Agent.id == agent_id).values(last_seen=now)
-    )
+    await db.execute(update(Agent).where(Agent.id == agent_id).values(last_seen=now))
 
     # Publish to Redis for real-time dashboard
     try:
-        import redis.asyncio as aioredis
-        from app.config import settings
         import json
+
+        import redis.asyncio as aioredis
+
+        from app.config import settings
 
         r = aioredis.from_url(settings.REDIS_URL)
         await r.publish(
@@ -235,6 +242,7 @@ async def submit_inventory(
     if not asset:
         # Enforce asset limit before creating new assets
         from app.billing.service import enforce_asset_limit
+
         await enforce_asset_limit(tenant_id, db)
 
     if asset:
@@ -293,15 +301,17 @@ async def poll_actions(
     """Agent polls for pending actions."""
     from app.remote_actions.models import RemoteAction
 
-    agent_id, tenant_id = agent_info
-    now = datetime.now(timezone.utc)
+    agent_id, _tenant_id = agent_info
+    now = datetime.now(UTC)
 
     result = await db.execute(
-        select(RemoteAction).where(
+        select(RemoteAction)
+        .where(
             RemoteAction.agent_id == agent_id,
             RemoteAction.status == "pending",
             RemoteAction.expires_at > now,
-        ).order_by(RemoteAction.created_at.asc())
+        )
+        .order_by(RemoteAction.created_at.asc())
     )
     actions = result.scalars().all()
 
@@ -329,7 +339,7 @@ async def report_action_result(
     """Agent reports action result."""
     from app.remote_actions.models import RemoteAction
 
-    agent_id, tenant_id = agent_info
+    agent_id, _tenant_id = agent_info
 
     result = await db.execute(
         select(RemoteAction).where(
@@ -344,7 +354,7 @@ async def report_action_result(
     action.status = body.get("status", "completed")
     action.result = body.get("result")
     action.error = body.get("error")
-    action.completed_at = datetime.now(timezone.utc)
+    action.completed_at = datetime.now(UTC)
 
     return {"status": "ok"}
 
@@ -358,14 +368,12 @@ async def submit_processes(
     from app.monitoring.process_models import ProcessSnapshot
 
     agent_id, tenant_id = agent_info
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Delete old snapshots for this agent (keep only latest)
     from sqlalchemy import delete
 
-    await db.execute(
-        delete(ProcessSnapshot).where(ProcessSnapshot.agent_id == agent_id)
-    )
+    await db.execute(delete(ProcessSnapshot).where(ProcessSnapshot.agent_id == agent_id))
 
     for proc in body.processes:
         snapshot = ProcessSnapshot(

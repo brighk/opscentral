@@ -1,17 +1,15 @@
 import uuid
 
-from sqlalchemy import Float, ForeignKey, Integer, String, JSON, Uuid
+from sqlalchemy import JSON, Float, ForeignKey, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, UUIDMixin, TimestampMixin
+from app.db.base import Base, TimestampMixin, UUIDMixin
 
 
 class Asset(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "assets"
 
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, nullable=False, index=True
-    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
     agent_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("agents.id"), nullable=True, unique=True
     )

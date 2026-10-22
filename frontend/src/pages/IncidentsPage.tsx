@@ -8,7 +8,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconPlus, IconCheck } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
-import { incidentsApi, Incident, IncidentStats } from '../api/incidents';
+import { incidentsApi } from '../api/incidents';
 
 export default function IncidentsPage() {
   const queryClient = useQueryClient();

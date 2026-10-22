@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.models import Agent
@@ -29,9 +29,9 @@ async def query_metrics(
     db: AsyncSession = Depends(get_db),
 ):
     if not start:
-        start = datetime.now(timezone.utc) - timedelta(hours=1)
+        start = datetime.now(UTC) - timedelta(hours=1)
     if not end:
-        end = datetime.now(timezone.utc)
+        end = datetime.now(UTC)
 
     # Use date_trunc on PostgreSQL; on SQLite, just use recorded_at directly
     dialect = db.bind.dialect.name if db.bind else "postgresql"
@@ -85,38 +85,56 @@ async def status_overview(
     db: AsyncSession = Depends(get_db),
 ):
     tenant_id = user.tenant_id
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=3)
-    hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+    cutoff = datetime.now(UTC) - timedelta(minutes=3)
+    hour_ago = datetime.now(UTC) - timedelta(hours=1)
 
-    total_agents = await db.scalar(
-        select(func.count()).select_from(Agent).where(
-            Agent.tenant_id == tenant_id, Agent.is_active == True  # noqa: E712
+    total_agents = (
+        await db.scalar(
+            select(func.count())
+            .select_from(Agent)
+            .where(
+                Agent.tenant_id == tenant_id,
+                Agent.is_active == True,  # noqa: E712
+            )
         )
-    ) or 0
+        or 0
+    )
 
-    online_agents = await db.scalar(
-        select(func.count()).select_from(Agent).where(
-            Agent.tenant_id == tenant_id,
-            Agent.is_active == True,  # noqa: E712
-            Agent.last_seen >= cutoff,
+    online_agents = (
+        await db.scalar(
+            select(func.count())
+            .select_from(Agent)
+            .where(
+                Agent.tenant_id == tenant_id,
+                Agent.is_active == True,  # noqa: E712
+                Agent.last_seen >= cutoff,
+            )
         )
-    ) or 0
+        or 0
+    )
 
-    total_assets = await db.scalar(
-        select(func.count()).select_from(Asset).where(Asset.tenant_id == tenant_id)
-    ) or 0
+    total_assets = (
+        await db.scalar(select(func.count()).select_from(Asset).where(Asset.tenant_id == tenant_id))
+        or 0
+    )
 
-    active_alerts = await db.scalar(
-        select(func.count()).select_from(Alert).where(
-            Alert.tenant_id == tenant_id, Alert.status == "firing"
+    active_alerts = (
+        await db.scalar(
+            select(func.count())
+            .select_from(Alert)
+            .where(Alert.tenant_id == tenant_id, Alert.status == "firing")
         )
-    ) or 0
+        or 0
+    )
 
-    metrics_count = await db.scalar(
-        select(func.count()).select_from(Metric).where(
-            Metric.tenant_id == tenant_id, Metric.recorded_at >= hour_ago
+    metrics_count = (
+        await db.scalar(
+            select(func.count())
+            .select_from(Metric)
+            .where(Metric.tenant_id == tenant_id, Metric.recorded_at >= hour_ago)
         )
-    ) or 0
+        or 0
+    )
 
     return StatusOverview(
         total_agents=total_agents,

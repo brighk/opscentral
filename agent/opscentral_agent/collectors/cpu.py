@@ -8,9 +8,14 @@ def collect_cpu() -> list[dict]:
     cpu_percent = psutil.cpu_percent(interval=1)
     metrics.append({"name": "cpu_percent", "value": cpu_percent, "unit": "%"})
 
-    cpu_freq = psutil.cpu_freq()
-    if cpu_freq:
-        metrics.append({"name": "cpu_freq_mhz", "value": cpu_freq.current, "unit": "MHz"})
+    # psutil only defines cpu_freq() where the OS exposes it; many cloud VMs don't
+    if hasattr(psutil, "cpu_freq"):
+        try:
+            cpu_freq = psutil.cpu_freq()
+        except (OSError, NotImplementedError):
+            cpu_freq = None
+        if cpu_freq:
+            metrics.append({"name": "cpu_freq_mhz", "value": cpu_freq.current, "unit": "MHz"})
 
     # getloadavg() is not available on Windows
     if platform.system() != "Windows":
@@ -23,7 +28,11 @@ def collect_cpu() -> list[dict]:
             pass
 
     # Per-CPU usage (works on all platforms)
-    metrics.append({"name": "cpu_count_logical", "value": psutil.cpu_count(logical=True), "unit": ""})
-    metrics.append({"name": "cpu_count_physical", "value": psutil.cpu_count(logical=False) or 0, "unit": ""})
+    metrics.append(
+        {"name": "cpu_count_logical", "value": psutil.cpu_count(logical=True), "unit": ""}
+    )
+    metrics.append(
+        {"name": "cpu_count_physical", "value": psutil.cpu_count(logical=False) or 0, "unit": ""}
+    )
 
     return metrics

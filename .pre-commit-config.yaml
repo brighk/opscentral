@@ -1,0 +1,82 @@
+# Run `pre-commit install` once after cloning; see CONTRIBUTING.md.
+# Python and frontend hooks run the tools pinned in uv.lock / package-lock.json,
+# so local checks and CI always use the same versions.
+default_install_hook_types: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+        exclude: tsconfig.*\.json$ # JSONC (comments allowed)
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      # --- backend ---
+      - id: backend-ruff
+        name: ruff (backend)
+        entry: uv run --directory backend ruff check --fix
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
+      - id: backend-ruff-format
+        name: ruff format (backend)
+        entry: uv run --directory backend ruff format
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
+      - id: backend-pyright
+        name: pyright (backend)
+        entry: uv run --directory backend pyright
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
+
+      # --- agent ---
+      - id: agent-ruff
+        name: ruff (agent)
+        entry: uv run --directory agent ruff check --fix
+        language: system
+        files: ^agent/.*\.py$
+        pass_filenames: false
+      - id: agent-ruff-format
+        name: ruff format (agent)
+        entry: uv run --directory agent ruff format
+        language: system
+        files: ^agent/.*\.py$
+        pass_filenames: false
+      - id: agent-pyright
+        name: pyright (agent)
+        entry: uv run --directory agent pyright
+        language: system
+        files: ^agent/.*\.py$
+        pass_filenames: false
+
+      # --- frontend ---
+      - id: frontend-eslint
+        name: eslint (frontend)
+        entry: npm --prefix frontend run lint
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+      - id: frontend-tsc
+        name: tsc (frontend)
+        entry: npm --prefix frontend run typecheck
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false

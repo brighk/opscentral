@@ -1,23 +1,20 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, JSON, Uuid
+from sqlalchemy import JSON, Boolean, DateTime, Float, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, UUIDMixin, TimestampMixin
+from app.db.base import Base, TimestampMixin, UUIDMixin
 
 
 class HealthCheck(Base, UUIDMixin, TimestampMixin):
     """A configured health check that runs on a schedule."""
+
     __tablename__ = "health_checks"
 
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, nullable=False, index=True
-    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    check_type: Mapped[str] = mapped_column(
-        String(20), nullable=False
-    )  # http, tcp, dns
+    check_type: Mapped[str] = mapped_column(String(20), nullable=False)  # http, tcp, dns
     target: Mapped[str] = mapped_column(
         String(500), nullable=False
     )  # URL, host:port, or domain name
@@ -42,6 +39,7 @@ class HealthCheck(Base, UUIDMixin, TimestampMixin):
 
 class HealthCheckLog(Base):
     """Log of health check results over time."""
+
     __tablename__ = "health_check_logs"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

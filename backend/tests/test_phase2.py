@@ -6,16 +6,22 @@ from httpx import AsyncClient
 
 async def _register_and_login(client: AsyncClient) -> str:
     """Helper: register user and return access token."""
-    await client.post("/api/v1/auth/register", json={
-        "email": "test@example.com",
-        "password": "testpassword123",
-        "full_name": "Test User",
-        "company_name": "Test Corp",
-    })
-    response = await client.post("/api/v1/auth/login", json={
-        "email": "test@example.com",
-        "password": "testpassword123",
-    })
+    await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "test@example.com",
+            "password": "testpassword123",
+            "full_name": "Test User",
+            "company_name": "Test Corp",
+        },
+    )
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "test@example.com",
+            "password": "testpassword123",
+        },
+    )
     return response.json()["access_token"]
 
 
@@ -32,10 +38,11 @@ async def _register_agent(client: AsyncClient, token: str) -> tuple[str, str]:
 
 # --- Process Monitoring Tests ---
 
+
 @pytest.mark.asyncio
 async def test_submit_processes(client: AsyncClient):
     token = await _register_and_login(client)
-    agent_id, api_key = await _register_agent(client, token)
+    _agent_id, api_key = await _register_agent(client, token)
 
     response = await client.post(
         "/api/v1/gateway/processes",
@@ -74,7 +81,7 @@ async def test_submit_processes(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_query_processes(client: AsyncClient):
     token = await _register_and_login(client)
-    agent_id, api_key = await _register_agent(client, token)
+    _agent_id, api_key = await _register_agent(client, token)
 
     # Submit some processes
     await client.post(
@@ -99,6 +106,7 @@ async def test_query_processes(client: AsyncClient):
 
 
 # --- Notification Channel Tests ---
+
 
 @pytest.mark.asyncio
 async def test_create_notification_channel(client: AsyncClient):
@@ -165,6 +173,7 @@ async def test_delete_notification_channel(client: AsyncClient):
 
 
 # --- Health Check Tests ---
+
 
 @pytest.mark.asyncio
 async def test_create_health_check(client: AsyncClient):

@@ -1,7 +1,8 @@
 import asyncio
+import contextlib
 import json
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from jose import JWTError
 
 from app.auth.security import decode_token
@@ -56,7 +57,5 @@ async def dashboard_websocket(websocket: WebSocket, token: str = Query(...)):
             await r.aclose()
 
     except Exception:
-        try:
+        with contextlib.suppress(Exception):
             await websocket.close()
-        except Exception:
-            pass

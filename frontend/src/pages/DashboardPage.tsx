@@ -34,7 +34,7 @@ export default function DashboardPage() {
 
   const { data: alerts } = useQuery({
     queryKey: ['alerts', 'firing'],
-    queryFn: () => alertingApi.listAlerts('firing').then(r => r.data),
+    queryFn: () => alertingApi.listAlerts('firing').then(r => r.data.items),
     refetchInterval: 30000,
   });
 

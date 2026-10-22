@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, String, JSON, Uuid
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -12,9 +12,7 @@ class Metric(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
-    agent_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("agents.id"), nullable=False
-    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("agents.id"), nullable=False)
     metric_name: Mapped[str] = mapped_column(String(100), nullable=False)
     metric_value: Mapped[float] = mapped_column(Float, nullable=False)
     unit: Mapped[str] = mapped_column(String(20), default="")

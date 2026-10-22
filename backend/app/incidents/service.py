@@ -1,10 +1,11 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.incidents.models import Incident, IncidentUpdate as IncidentUpdateModel
+from app.incidents.models import Incident
+from app.incidents.models import IncidentUpdate as IncidentUpdateModel
 
 
 async def create_incident_from_alert(
@@ -34,15 +35,13 @@ async def auto_resolve_incident(
     incident_id: uuid.UUID,
     resolved_by: uuid.UUID,
 ) -> Incident | None:
-    result = await db.execute(
-        select(Incident).where(Incident.id == incident_id)
-    )
+    result = await db.execute(select(Incident).where(Incident.id == incident_id))
     incident = result.scalar_one_or_none()
     if not incident or incident.status in ("resolved", "closed"):
         return incident
 
     incident.status = "resolved"
-    incident.resolved_at = datetime.now(timezone.utc)
+    incident.resolved_at = datetime.now(UTC)
 
     update = IncidentUpdateModel(
         incident_id=incident.id,
@@ -64,8 +63,8 @@ async def calculate_mttr(
     result = await db.execute(
         select(
             func.avg(
-                func.extract("epoch", Incident.resolved_at) -
-                func.extract("epoch", Incident.created_at)
+                func.extract("epoch", Incident.resolved_at)
+                - func.extract("epoch", Incident.created_at)
             )
         ).where(
             Incident.tenant_id == tenant_id,

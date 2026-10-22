@@ -26,7 +26,7 @@ export default function AlertsPage() {
 
   const { data: alerts, isLoading: alertsLoading } = useQuery({
     queryKey: ['alerts'],
-    queryFn: () => alertingApi.listAlerts().then(r => r.data),
+    queryFn: () => alertingApi.listAlerts().then(r => r.data.items),
     refetchInterval: 15000,
   });
 

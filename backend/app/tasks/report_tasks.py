@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.tasks.celery_app import celery
 
@@ -10,9 +10,8 @@ logger = logging.getLogger(__name__)
 @celery.task(name="app.tasks.report_tasks.generate_report")
 def generate_report(report_id: str):
     """Generate a report (called async per report)."""
-    from sqlalchemy import select
+    from sqlalchemy import create_engine, select
     from sqlalchemy.orm import Session
-    from sqlalchemy import create_engine
 
     from app.config import settings
     from app.reports.models import Report
@@ -57,7 +56,8 @@ def generate_report(report_id: str):
             report_dir = os.path.join(tempfile.gettempdir(), "opscentral_reports")
             os.makedirs(report_dir, exist_ok=True)
 
-            ext = "txt" if report.format == "csv" else "txt"
+            # TODO: generators emit plain text for every format; write real CSV/PDF output
+            ext = "txt"
             file_path = os.path.join(report_dir, f"{report.id}.{ext}")
             with open(file_path, "w") as f:
                 f.write(content)
@@ -79,15 +79,14 @@ def generate_report(report_id: str):
 @celery.task(name="app.tasks.report_tasks.run_scheduled_reports")
 def run_scheduled_reports():
     """Check for due report schedules and queue generation."""
-    from sqlalchemy import select
+    from sqlalchemy import create_engine, select
     from sqlalchemy.orm import Session
-    from sqlalchemy import create_engine
 
     from app.config import settings
     from app.reports.models import Report, ReportSchedule
 
     engine = create_engine(settings.DATABASE_URL_SYNC)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     with Session(engine) as db:
         result = db.execute(
@@ -126,9 +125,8 @@ def run_scheduled_reports():
 @celery.task(name="app.tasks.report_tasks.calculate_compliance_scores")
 def calculate_compliance_scores():
     """Calculate compliance scores for all tenants (daily at 3 AM)."""
-    from sqlalchemy import select
+    from sqlalchemy import create_engine, select
     from sqlalchemy.orm import Session
-    from sqlalchemy import create_engine
 
     from app.auth.models import Tenant
     from app.config import settings

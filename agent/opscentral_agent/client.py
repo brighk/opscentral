@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import httpx
 
@@ -8,13 +9,14 @@ logger = logging.getLogger(__name__)
 
 
 class AgentClient:
-    def __init__(self):
+    def __init__(self, transport: httpx.BaseTransport | None = None):
         self.base_url = config.server_url.rstrip("/")
         self.api_key = config.api_key
         self._client = httpx.Client(
             base_url=self.base_url,
             headers={"X-Agent-Key": self.api_key},
             timeout=30.0,
+            transport=transport,
         )
 
     def send_heartbeat(self, agent_version: str, ip_address: str | None = None):
@@ -70,9 +72,11 @@ class AgentClient:
             logger.error(f"Failed to poll actions: {e}")
             return []
 
-    def report_action_result(self, action_id: str, status: str, result: dict | None = None, error: str | None = None):
+    def report_action_result(
+        self, action_id: str, status: str, result: dict | None = None, error: str | None = None
+    ):
         try:
-            payload = {"status": status}
+            payload: dict[str, Any] = {"status": status}
             if result is not None:
                 payload["result"] = result
             if error is not None:

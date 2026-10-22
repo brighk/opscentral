@@ -1,4 +1,4 @@
-import api from './client';
+import api, { type Paginated } from './client';
 
 export interface Asset {
   id: string;
@@ -31,7 +31,7 @@ export interface Software {
 }
 
 export const assetsApi = {
-  list: () => api.get<Asset[]>('/api/v1/assets'),
+  list: () => api.get<Paginated<Asset>>('/api/v1/assets'),
   get: (id: string) => api.get<AssetDetail>(`/api/v1/assets/${id}`),
   getSoftware: (id: string) => api.get<Software[]>(`/api/v1/assets/${id}/software`),
 };

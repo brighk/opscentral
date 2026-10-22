@@ -9,12 +9,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { usersApi, type ManagedUser, type AuditLogEntry } from '../api/users';
 
-const roleColor: Record<string, string> = {
-  admin: 'red',
-  operator: 'blue',
-  viewer: 'gray',
-};
-
 export default function UserManagementPage() {
   const queryClient = useQueryClient();
   const [inviteOpened, { open: openInvite, close: closeInvite }] = useDisclosure(false);

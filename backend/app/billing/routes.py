@@ -40,6 +40,7 @@ async def get_subscription(
         asset_count=stats["asset_count"],
         current_period_start=sub.current_period_start,
         current_period_end=sub.current_period_end,
+        has_billing_portal=sub.stripe_customer_id is not None,
         created_at=sub.created_at,
     )
 
