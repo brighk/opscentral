@@ -69,6 +69,14 @@ remote actions. Changes to `agent/`, `install.sh`, `install.ps1`,
 `backend/app/remote_actions/`, `backend/app/runbooks/` or authentication code get
 extra scrutiny; please explain the security impact in your PR description.
 
+## License
+
+OpsCentral is licensed under the [Apache License 2.0](LICENSE). By submitting a
+pull request, you agree that your contribution is licensed under the same terms
+(see section 5 of the license).
+
+## Reporting security issues
+
 If you find a security vulnerability, please **do not open a public issue**.
 Report it privately through GitHub's
 [security advisories](https://github.com/brighk/opscentral/security/advisories/new).

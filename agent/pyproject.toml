@@ -2,6 +2,7 @@
 name = "opscentral-agent"
 version = "0.1.0"
 description = "OpsCentral lightweight monitoring agent"
+license = "Apache-2.0"
 requires-python = ">=3.10"
 dependencies = [
     "psutil>=6.1",
@@ -23,7 +24,7 @@ dev = [
 opscentral-agent = "opscentral_agent.main:main"
 
 [build-system]
-requires = ["setuptools>=75"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.ruff]
