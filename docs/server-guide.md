@@ -74,6 +74,7 @@ All settings are controlled via environment variables with the `OC_` prefix. Cre
 | `OC_CORS_ORIGINS` | `["http://localhost:5173"]` | Allowed CORS origins (JSON array) |
 | `OC_DEBUG` | `true` | Enable debug mode (SQL logging, etc.) Set to `false` in production. |
 | `OC_APP_NAME` | `OpsCentral` | Application name shown in UI and emails |
+| `OC_ALLOW_PRIVATE_NETWORK_TARGETS` | `false` | Runbook webhooks and Jira/ServiceNow integrations may only call public addresses. Set to `true` on a self-hosted install that needs to reach internal hosts. Leave `false` on any multi-tenant deployment. |
 
 ### Production Example
 

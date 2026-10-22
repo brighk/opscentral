@@ -55,5 +55,5 @@ export const integrationsApi = {
   updateIntegration: (id: string, data: { name?: string; config?: Record<string, unknown>; is_active?: boolean }) =>
     axios.put<ExternalIntegration>(`/api/v1/integrations/${id}`, data),
   deleteIntegration: (id: string) => axios.delete(`/api/v1/integrations/${id}`),
-  testIntegration: (id: string) => axios.post(`/api/v1/integrations/${id}/test`),
+  testIntegration: (id: string) => axios.post<{ detail: string }>(`/api/v1/integrations/${id}/test`),
 };

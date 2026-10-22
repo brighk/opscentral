@@ -41,6 +41,17 @@ api.interceptors.response.use(
   },
 );
 
+/** Human-readable message from a failed API call (FastAPI `detail`), or `fallback`. */
+export function apiErrorMessage(err: unknown, fallback: string): string {
+  const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  // Validation errors (422) are a list of {loc, msg}
+  if (Array.isArray(detail)) {
+    return detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join('; ') || fallback;
+  }
+  return fallback;
+}
+
 export interface Paginated<T> {
   items: T[];
   total: number;

@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import time
+import uuid
 from datetime import UTC, datetime
 
 import httpx
@@ -21,7 +22,7 @@ def compute_signature(secret: str, payload: str) -> str:
 
 async def dispatch_webhook(
     db: AsyncSession,
-    tenant_id: str,
+    tenant_id: uuid.UUID | str,
     event_type: str,
     payload: dict,
 ) -> int:

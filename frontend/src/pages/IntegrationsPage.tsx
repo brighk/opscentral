@@ -12,6 +12,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { integrationsApi } from '../api/integrations';
+import { apiErrorMessage } from '../api/client';
 import type { WebhookEndpoint } from '../api/integrations';
 
 const PROVIDERS = [
@@ -246,8 +247,8 @@ function ExternalIntegrationsTab() {
 
   const testMutation = useMutation({
     mutationFn: integrationsApi.testIntegration,
-    onSuccess: () => notifications.show({ title: 'Test Passed', message: 'Connection test successful', color: 'green' }),
-    onError: () => notifications.show({ title: 'Test Failed', message: 'Connection test failed', color: 'red' }),
+    onSuccess: (res) => notifications.show({ title: 'Test Passed', message: res.data.detail, color: 'green' }),
+    onError: (err) => notifications.show({ title: 'Test Failed', message: apiErrorMessage(err, 'Connection test failed'), color: 'red' }),
   });
 
   if (isLoading) return <Center h={200}><Loader /></Center>;

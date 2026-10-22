@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     WEBHOOK_MAX_RETRIES: int = 3
     PAGERDUTY_ROUTING_KEY: str = ""
 
+    # Outbound requests to user-supplied URLs (runbook webhooks, Jira, ServiceNow)
+    # are limited to public addresses. Self-hosted installs that need to reach
+    # internal systems can allow private/loopback targets.
+    ALLOW_PRIVATE_NETWORK_TARGETS: bool = False
+
     # App
     APP_NAME: str = "OpsCentral"
     DEBUG: bool = True

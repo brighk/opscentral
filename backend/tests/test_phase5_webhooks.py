@@ -1,3 +1,4 @@
+import respx
 from httpx import AsyncClient
 
 
@@ -173,6 +174,8 @@ class TestWebhooks:
         )
         int_id = create_resp.json()["id"]
 
-        resp = await client.post(f"/api/v1/integrations/{int_id}/test", headers=headers)
+        with respx.mock:
+            respx.get("https://api.opsgenie.com/v2/alerts").respond(200, json={"data": []})
+            resp = await client.post(f"/api/v1/integrations/{int_id}/test", headers=headers)
         assert resp.status_code == 200
-        assert "successful" in resp.json()["detail"]
+        assert resp.json()["detail"] == "Connected to Opsgenie"
